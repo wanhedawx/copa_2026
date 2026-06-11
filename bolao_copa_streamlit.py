@@ -14,9 +14,8 @@ LOCK_HOURS_BEFORE = 1
 ADMIN_USER = "admin"  # crie esse usuário no primeiro login e use como admin
 
 # ===================== JOGOS =====================
-# Ajuste/complete aqui os jogos. Formato: id, data_hora, grupo, mandante, visitante
+# Formato: id, data_hora, grupo, mandante, visitante
 JOGOS = [
-
     # GRUPO A
     {"id":"A01","data_hora":"2026-06-11 16:00","grupo":"A","mandante":"México","visitante":"África do Sul"},
     {"id":"A02","data_hora":"2026-06-11 23:00","grupo":"A","mandante":"Coreia do Sul","visitante":"República Tcheca"},
@@ -114,7 +113,6 @@ JOGOS = [
     {"id":"L06","data_hora":"2026-06-27 18:00","grupo":"L","mandante":"Croácia","visitante":"Gana"},
 ]
 
-
 # ===================== ESTILO =====================
 def aplicar_estilo():
     st.markdown("""
@@ -124,13 +122,9 @@ def aplicar_estilo():
         max-width: 1500px;
     }
 
-    h1, h2, h3 {
-        letter-spacing: -0.4px;
-    }
+    h1, h2, h3 { letter-spacing: -0.4px; }
 
-    div[data-testid="stInfo"] {
-        border-radius: 10px;
-    }
+    div[data-testid="stInfo"] { border-radius: 10px; }
 
     .grupo-box {
         margin-top: 26px;
@@ -220,7 +214,6 @@ def aplicar_estilo():
     </style>
     """, unsafe_allow_html=True)
 
-
 # ===================== FUNÇÕES JSON =====================
 def load_json(path, default):
     if not path.exists():
@@ -276,26 +269,30 @@ def login_screen():
 # ===================== REGRAS =====================
 def resultado_tipo(gols_casa, gols_fora):
     if gols_casa > gols_fora:
-        return "C"
+        return "W"  # mandante venceu
     if gols_casa < gols_fora:
-        return "F"
-    return "E"
+        return "L"  # visitante venceu
+    return "D"      # empate
 
 def calcula_pontos(palpite, real):
+    # Só pontua se o admin marcou/salvou resultado real daquele jogo.
     if palpite is None or real is None:
         return 0, "Pendente"
-    pc, pf = palpite["casa"], palpite["fora"]
-    rc, rf = real["casa"], real["fora"]
+
+    pc, pf = int(palpite["casa"]), int(palpite["fora"])
+    rc, rf = int(real["casa"]), int(real["fora"])
+
     if pc == rc and pf == rf:
         return 3, "Placar exato"
+
     if resultado_tipo(pc, pf) == resultado_tipo(rc, rf):
         return 1, "Resultado certo"
+
     return 0, "Errou"
 
 def jogo_bloqueado(data_hora_str):
     inicio = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M").replace(tzinfo=TZ)
     return datetime.now(TZ) >= inicio - timedelta(hours=LOCK_HOURS_BEFORE)
-
 
 # ===================== GERENCIAR USUÁRIOS =====================
 def gerenciar_usuarios():
@@ -319,17 +316,8 @@ def gerenciar_usuarios():
     st.divider()
     st.markdown("### Alterar nome do usuário")
 
-    usuario_antigo = st.selectbox(
-        "Selecione o usuário",
-        lista_usuarios,
-        key="admin_usuario_antigo"
-    )
-
-    novo_nome = st.text_input(
-        "Novo nome",
-        value=usuario_antigo,
-        key="admin_novo_nome"
-    ).strip().upper()
+    usuario_antigo = st.selectbox("Selecione o usuário", lista_usuarios, key="admin_usuario_antigo")
+    novo_nome = st.text_input("Novo nome", value=usuario_antigo, key="admin_novo_nome").strip().upper()
 
     col1, col2 = st.columns(2)
 
@@ -344,12 +332,10 @@ def gerenciar_usuarios():
             elif novo_nome in users:
                 st.error("Já existe um usuário com esse nome.")
             else:
-                # Renomeia no arquivo de usuários
                 users[novo_nome] = users.pop(usuario_antigo)
                 users[novo_nome]["alterado_em"] = datetime.now(TZ).isoformat()
                 users[novo_nome]["nome_anterior"] = usuario_antigo
 
-                # Migra também os palpites para manter a pontuação
                 if usuario_antigo in palpites:
                     palpites[novo_nome] = palpites.pop(usuario_antigo)
 
@@ -386,21 +372,21 @@ def app():
     palpites.setdefault(usuario, {})
 
     if is_admin:
-        menu = st.sidebar.radio(
-            "Menu",
-            ["Meus palpites", "Classificação", "Resultados reais", "Gerenciar usuários"]
-        )
+        menu = st.sidebar.radio("Menu", ["Meus palpites", "Classificação", "Resultados reais", "Gerenciar usuários"])
     else:
-        menu = st.sidebar.radio(
-            "Menu",
-            ["Meus palpites", "Classificação", "Ver resultados"]
-        )
+        menu = st.sidebar.radio("Menu", ["Meus palpites", "Classificação", "Ver resultados"])
 
     st.markdown("<h1 style='text-align:center'>🏆 BOLÃO DA COPA DO MUNDO 2026 🏆</h1>", unsafe_allow_html=True)
 
     if menu == "Meus palpites":
         st.subheader("Minha aba de palpites")
         st.info("Cada jogo trava automaticamente 1 hora antes do início.")
+        st.markdown("""
+        ### 📌 Regras de pontuação
+        - **3 pontos**: acertou o placar exato.
+        - **1 ponto**: acertou o resultado **W/D/L**: vitória do mandante, empate ou vitória do visitante.
+        - **0 pontos**: errou o resultado.
+        """)
 
         for grupo in sorted(set(j["grupo"] for j in JOGOS)):
             st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
@@ -414,9 +400,7 @@ def app():
             h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
             h7.markdown("<div class='cabecalho-jogo'>Status</div>", unsafe_allow_html=True)
 
-            jogos_grupo = [j for j in JOGOS if j["grupo"] == grupo]
-
-            for j in jogos_grupo:
+            for j in [x for x in JOGOS if x["grupo"] == grupo]:
                 lock = jogo_bloqueado(j["data_hora"])
                 atual = palpites[usuario].get(j["id"], {})
                 data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
@@ -425,50 +409,24 @@ def app():
 
                 with c1:
                     st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
-
                 with c2:
                     st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
-
                 with c3:
-                    casa = st.number_input(
-                        "Gols mandante",
-                        min_value=0,
-                        max_value=30,
-                        value=int(atual.get("casa", 0)),
-                        disabled=lock,
-                        key=f"{usuario}_{j['id']}_c",
-                        label_visibility="collapsed"
-                    )
-
+                    casa = st.number_input("Gols mandante", min_value=0, max_value=30, value=int(atual.get("casa", 0)), disabled=lock, key=f"{usuario}_{j['id']}_c", label_visibility="collapsed")
                 with c4:
                     st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
-
                 with c5:
-                    fora = st.number_input(
-                        "Gols visitante",
-                        min_value=0,
-                        max_value=30,
-                        value=int(atual.get("fora", 0)),
-                        disabled=lock,
-                        key=f"{usuario}_{j['id']}_f",
-                        label_visibility="collapsed"
-                    )
-
+                    fora = st.number_input("Gols visitante", min_value=0, max_value=30, value=int(atual.get("fora", 0)), disabled=lock, key=f"{usuario}_{j['id']}_f", label_visibility="collapsed")
                 with c6:
                     st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
-
                 with c7:
                     if lock:
                         st.markdown("<div class='linha-jogo status-fechado'>🔒 Fechado</div>", unsafe_allow_html=True)
                     else:
                         st.markdown("<div class='linha-jogo status-aberto'>✅ Aberto</div>", unsafe_allow_html=True)
 
-                if not lock:
-                    palpites[usuario][j["id"]] = {
-                        "casa": casa,
-                        "fora": fora,
-                        "salvo_em": datetime.now(TZ).isoformat()
-                    }
+              if not lock:
+                    palpites[usuario][j["id"]] = {"casa": casa, "fora": fora, "salvo_em": datetime.now(TZ).isoformat()}
 
         if st.button("Salvar meus palpites", use_container_width=True):
             save_json(PALPITES_FILE, palpites)
@@ -477,48 +435,30 @@ def app():
     elif menu == "Classificação":
         st.subheader("🏅 Classificação")
 
-        # A classificação considera SOMENTE usuários cadastrados em usuarios.json.
-        # Assim, se o admin excluir alguém, ele sai do ranking.
-        # Se o admin alterar o nome, aparece o nome novo.
         users = load_json(USERS_FILE, {})
         admin_name = ADMIN_USER.upper()
+        usuarios_validos = sorted([u for u in users.keys() if u != admin_name])
 
-        usuarios_validos = sorted([
-            u for u in users.keys()
-            if u != admin_name
-        ])
-
-        # Remove do arquivo de palpites qualquer usuário que foi excluído do cadastro.
-        palpites_limpos = {
-            u: dados for u, dados in palpites.items()
-            if u in usuarios_validos
-        }
-
+        palpites_limpos = {u: dados for u, dados in palpites.items() if u in usuarios_validos}
         if palpites_limpos != palpites:
             palpites = palpites_limpos
             save_json(PALPITES_FILE, palpites)
 
         linhas = []
-
         for user in usuarios_validos:
             palp_user = palpites.get(user, {})
-
             pontos = 0
             exatos = 0
             resultados_certos = 0
 
             for j in JOGOS:
                 p = palp_user.get(j["id"])
-                r = resultados.get(j["id"])
-
+                r = resultados.get(j["id"])  # se não existir resultado real, não pontua
                 pts, desc = calcula_pontos(p, r)
-
                 pontos += pts
-
                 if desc == "Placar exato":
                     exatos += 1
-
-                if desc == "Resultado certo":
+                elif desc == "Resultado certo":
                     resultados_certos += 1
 
             linhas.append({
@@ -529,20 +469,10 @@ def app():
             })
 
         df = pd.DataFrame(linhas)
-
         if not df.empty:
-            df = df.sort_values(
-                ["Pontos", "Placares Exatos", "Resultados Certos", "Participante"],
-                ascending=[False, False, False, True]
-            ).reset_index(drop=True)
-
+            df = df.sort_values(["Pontos", "Placares Exatos", "Resultados Certos", "Participante"], ascending=[False, False, False, True]).reset_index(drop=True)
             df.insert(0, "Pos", df.index + 1)
-
-            st.dataframe(
-                df,
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.warning("Ainda não há usuários cadastrados para aparecer na classificação.")
 
@@ -555,65 +485,59 @@ def app():
     else:
         if is_admin:
             st.subheader("Lançar resultados reais")
+            st.warning("Marque **Resultado definido** somente nos jogos que já terminaram. Jogo desmarcado não conta pontos na classificação.")
+
+            if st.button("🧹 Limpar todos os resultados reais", use_container_width=True):
+                save_json(RESULTADOS_FILE, {})
+                st.success("Resultados reais limpos. A classificação foi zerada até você lançar novos resultados.")
+                st.rerun()
+
+            resultados_temp = dict(resultados)
 
             for grupo in sorted(set(j["grupo"] for j in JOGOS)):
                 st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
 
-                h1, h2, h3, h4, h5, h6 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3])
+                h1, h2, h3, h4, h5, h6, h7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 1.2])
                 h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
                 h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
                 h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
                 h4.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
                 h5.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
                 h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
+                h7.markdown("<div class='cabecalho-jogo'>Definido?</div>", unsafe_allow_html=True)
 
                 for j in [x for x in JOGOS if x["grupo"] == grupo]:
                     atual = resultados.get(j["id"], {})
+                    ja_definido = j["id"] in resultados
                     data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
 
-                    c1, c2, c3, c4, c5, c6 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3])
+                    c1, c2, c3, c4, c5, c6, c7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 1.2])
 
                     with c1:
                         st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
-
                     with c2:
                         st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
-
                     with c3:
-                        casa = st.number_input(
-                            "Gols mandante real",
-                            min_value=0,
-                            max_value=30,
-                            value=int(atual.get("casa", 0)),
-                            key=f"real_{j['id']}_c",
-                            label_visibility="collapsed"
-                        )
-
+                        casa = st.number_input("Gols mandante real", min_value=0, max_value=30, value=int(atual.get("casa", 0)), key=f"real_{j['id']}_c", label_visibility="collapsed")
                     with c4:
                         st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
-
                     with c5:
-                        fora = st.number_input(
-                            "Gols visitante real",
-                            min_value=0,
-                            max_value=30,
-                            value=int(atual.get("fora", 0)),
-                            key=f"real_{j['id']}_f",
-                            label_visibility="collapsed"
-                        )
-
+                        fora = st.number_input("Gols visitante real", min_value=0, max_value=30, value=int(atual.get("fora", 0)), key=f"real_{j['id']}_f", label_visibility="collapsed")
                     with c6:
                         st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
+                    with c7:
+                        marcado = st.checkbox("OK", value=ja_definido, key=f"real_{j['id']}_check", label_visibility="collapsed")
 
-                    resultados[j["id"]] = {
-                        "casa": casa,
-                        "fora": fora,
-                        "salvo_em": datetime.now(TZ).isoformat()
-                    }
+                    if marcado:
+                        resultados_temp[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": datetime.now(TZ).isoformat()}
+                    else:
+                        resultados_temp.pop(j["id"], None)
 
             if st.button("Salvar resultados reais", use_container_width=True):
-                save_json(RESULTADOS_FILE, resultados)
+                save_json(RESULTADOS_FILE, resultados_temp)
                 st.success("Resultados reais salvos!")
+                st.rerun()
+
         else:
             st.subheader("Resultados reais")
             linhas = []
@@ -633,3 +557,4 @@ if "usuario" not in st.session_state:
     login_screen()
 else:
     app()
+        
