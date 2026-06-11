@@ -471,25 +471,75 @@ def app():
 
     elif menu == "Classificação":
         st.subheader("🏅 Classificação")
+
+        # A classificação considera SOMENTE usuários cadastrados em usuarios.json.
+        # Assim, se o admin excluir alguém, ele sai do ranking.
+        # Se o admin alterar o nome, aparece o nome novo.
+        users = load_json(USERS_FILE, {})
+        admin_name = ADMIN_USER.upper()
+
+        usuarios_validos = sorted([
+            u for u in users.keys()
+            if u != admin_name
+        ])
+
+        # Remove do arquivo de palpites qualquer usuário que foi excluído do cadastro.
+        palpites_limpos = {
+            u: dados for u, dados in palpites.items()
+            if u in usuarios_validos
+        }
+
+        if palpites_limpos != palpites:
+            palpites = palpites_limpos
+            save_json(PALPITES_FILE, palpites)
+
         linhas = []
-        for user, palp_user in palpites.items():
-            pontos = exatos = resultados_certos = 0
+
+        for user in usuarios_validos:
+            palp_user = palpites.get(user, {})
+
+            pontos = 0
+            exatos = 0
+            resultados_certos = 0
+
             for j in JOGOS:
                 p = palp_user.get(j["id"])
                 r = resultados.get(j["id"])
+
                 pts, desc = calcula_pontos(p, r)
+
                 pontos += pts
-                if desc == "Placar exato": exatos += 1
-                if desc == "Resultado certo": resultados_certos += 1
-            linhas.append({"Participante": user, "Pontos": pontos, "Placares Exatos": exatos, "Resultados Certos": resultados_certos})
+
+                if desc == "Placar exato":
+                    exatos += 1
+
+                if desc == "Resultado certo":
+                    resultados_certos += 1
+
+            linhas.append({
+                "Participante": user,
+                "Pontos": pontos,
+                "Placares Exatos": exatos,
+                "Resultados Certos": resultados_certos
+            })
 
         df = pd.DataFrame(linhas)
+
         if not df.empty:
-            df = df.sort_values(["Pontos", "Placares Exatos", "Resultados Certos"], ascending=False).reset_index(drop=True)
+            df = df.sort_values(
+                ["Pontos", "Placares Exatos", "Resultados Certos", "Participante"],
+                ascending=[False, False, False, True]
+            ).reset_index(drop=True)
+
             df.insert(0, "Pos", df.index + 1)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+
+            st.dataframe(
+                df,
+                use_container_width=True,
+                hide_index=True
+            )
         else:
-            st.warning("Ainda não há palpites.")
+            st.warning("Ainda não há usuários cadastrados para aparecer na classificação.")
 
     elif menu == "Gerenciar usuários":
         if is_admin:
