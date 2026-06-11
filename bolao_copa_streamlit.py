@@ -533,17 +533,17 @@ def app():
                     else:
                         resultados_temp.pop(j["id"], None)
 
-            if st.button("Salvar resultados reais", use_container_width=True):
-                save_json(RESULTADOS_FILE, resultados_temp)
-                st.success("Resultados reais salvos!")
-                st.rerun()
+                   if st.button("Salvar resultados reais", use_container_width=True):
+                     save_json(RESULTADOS_FILE, resultados_temp)
+                     st.success("Resultados reais salvos!")
+                     st.rerun()
 
-        else:
-            st.subheader("Resultados reais")
-            linhas = []
-            for j in JOGOS:
-                r = resultados.get(j["id"])
-                linhas.append({
+                   else:
+                     st.subheader("Resultados reais")
+                     linhas = []
+                 for j in JOGOS:
+                     r = resultados.get(j["id"])
+                     linhas.append({
                     "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
                     "Grupo": j["grupo"],
                     "Jogo": f"{j['mandante']} x {j['visitante']}",
