@@ -178,11 +178,15 @@ def aplicar_estilo():
     }
 
     .texto-x {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 55px;
         color: #60a5fa;
         font-weight: 900;
         text-align: center;
-        font-size: 18px;
-        padding-top: 7px;
+        font-size: 22px;
+        line-height: 1;
     }
 
     .status-aberto {
@@ -200,11 +204,12 @@ def aplicar_estilo():
     }
 
     div[data-testid="stNumberInput"] {
-        max-width: 82px;
+        max-width: 70px;
+        margin: auto;
     }
 
     div[data-testid="stNumberInput"] input {
-        text-align: center;
+        text-align: center !important;
         font-weight: 800;
     }
 
@@ -400,7 +405,7 @@ def app():
         for grupo in sorted(set(j["grupo"] for j in JOGOS)):
             st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
 
-            h1, h2, h3, h4, h5, h6, h7 = st.columns([1.35, 2.25, 0.62, 0.22, 0.62, 2.25, 0.95])
+            h1, h2, h3, h4, h5, h6, h7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
             h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
             h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
             h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
@@ -416,7 +421,7 @@ def app():
                 atual = palpites[usuario].get(j["id"], {})
                 data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
 
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([1.35, 2.25, 0.62, 0.22, 0.62, 2.25, 0.95])
+                c1, c2, c3, c4, c5, c6, c7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
 
                 with c1:
                     st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
@@ -436,7 +441,7 @@ def app():
                     )
 
                 with c4:
-                    st.markdown("<div class='texto-x'>x</div>", unsafe_allow_html=True)
+                    st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
 
                 with c5:
                     fora = st.number_input(
@@ -554,7 +559,7 @@ def app():
             for grupo in sorted(set(j["grupo"] for j in JOGOS)):
                 st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
 
-                h1, h2, h3, h4, h5, h6 = st.columns([1.35, 2.25, 0.62, 0.22, 0.62, 2.25])
+                h1, h2, h3, h4, h5, h6 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3])
                 h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
                 h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
                 h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
@@ -566,7 +571,7 @@ def app():
                     atual = resultados.get(j["id"], {})
                     data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
 
-                    c1, c2, c3, c4, c5, c6 = st.columns([1.35, 2.25, 0.62, 0.22, 0.62, 2.25])
+                    c1, c2, c3, c4, c5, c6 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3])
 
                     with c1:
                         st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
@@ -585,7 +590,7 @@ def app():
                         )
 
                     with c4:
-                        st.markdown("<div class='texto-x'>x</div>", unsafe_allow_html=True)
+                        st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
 
                     with c5:
                         fora = st.number_input(
