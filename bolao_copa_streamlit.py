@@ -114,6 +114,108 @@ JOGOS = [
     {"id":"L06","data_hora":"2026-06-27 18:00","grupo":"L","mandante":"Croácia","visitante":"Gana"},
 ]
 
+
+# ===================== ESTILO =====================
+def aplicar_estilo():
+    st.markdown("""
+    <style>
+    .main .block-container {
+        padding-top: 1.5rem;
+        max-width: 1500px;
+    }
+
+    h1, h2, h3 {
+        letter-spacing: -0.4px;
+    }
+
+    div[data-testid="stInfo"] {
+        border-radius: 10px;
+    }
+
+    .grupo-box {
+        margin-top: 26px;
+        margin-bottom: 8px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: #173b66;
+        border-left: 6px solid #f97316;
+        color: white;
+        font-size: 24px;
+        font-weight: 800;
+    }
+
+    .cabecalho-jogo {
+        padding: 8px 10px;
+        margin-top: 8px;
+        margin-bottom: 4px;
+        border-radius: 8px;
+        background: #0f2747;
+        color: #dbeafe;
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .linha-jogo {
+        padding: 8px 10px;
+        margin-bottom: 4px;
+        border-radius: 10px;
+        background: #111827;
+        border: 1px solid #243244;
+    }
+
+    .texto-data {
+        color: #e5e7eb;
+        font-weight: 700;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+
+    .texto-time {
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    .texto-x {
+        color: #60a5fa;
+        font-weight: 900;
+        text-align: center;
+        font-size: 18px;
+        padding-top: 7px;
+    }
+
+    .status-aberto {
+        color: #22c55e;
+        font-weight: 800;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+
+    .status-fechado {
+        color: #ef4444;
+        font-weight: 800;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+
+    div[data-testid="stNumberInput"] {
+        max-width: 82px;
+    }
+
+    div[data-testid="stNumberInput"] input {
+        text-align: center;
+        font-weight: 800;
+    }
+
+    .stButton > button {
+        border-radius: 10px;
+        font-weight: 800;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 # ===================== FUNÇÕES JSON =====================
 def load_json(path, default):
     if not path.exists():
@@ -133,6 +235,7 @@ def check_password(password, salt, senha_hash):
     return hashlib.sha256((salt + password).encode()).hexdigest() == senha_hash
 
 def login_screen():
+    aplicar_estilo()
     st.title("🏆 Bolão Copa do Mundo 2026")
     users = load_json(USERS_FILE, {})
 
@@ -190,6 +293,7 @@ def jogo_bloqueado(data_hora_str):
 
 # ===================== APP =====================
 def app():
+    aplicar_estilo()
     usuario = st.session_state["usuario"]
     is_admin = usuario == ADMIN_USER.upper()
 
@@ -211,24 +315,74 @@ def app():
         st.info("Cada jogo trava automaticamente 1 hora antes do início.")
 
         for grupo in sorted(set(j["grupo"] for j in JOGOS)):
-            st.markdown(f"### Grupo {grupo}")
+            st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
+
+            h1, h2, h3, h4, h5, h6, h7 = st.columns([1.35, 2.25, 0.62, 0.22, 0.62, 2.25, 0.95])
+            h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
+            h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
+            h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+            h4.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
+            h5.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+            h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
+            h7.markdown("<div class='cabecalho-jogo'>Status</div>", unsafe_allow_html=True)
+
             jogos_grupo = [j for j in JOGOS if j["grupo"] == grupo]
+
             for j in jogos_grupo:
                 lock = jogo_bloqueado(j["data_hora"])
                 atual = palpites[usuario].get(j["id"], {})
+                data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
 
-                cols = st.columns([2, 3, 1, 1, 3, 2])
-                cols[0].write(datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M"))
-                cols[1].write(j["mandante"])
-                casa = cols[2].number_input("", min_value=0, max_value=30, value=int(atual.get("casa", 0)), disabled=lock, key=f"{usuario}_{j['id']}_c")
-                fora = cols[3].number_input("", min_value=0, max_value=30, value=int(atual.get("fora", 0)), disabled=lock, key=f"{usuario}_{j['id']}_f")
-                cols[4].write(j["visitante"])
-                cols[5].write("🔒 Travado" if lock else "✅ Aberto")
+                c1, c2, c3, c4, c5, c6, c7 = st.columns([1.35, 2.25, 0.62, 0.22, 0.62, 2.25, 0.95])
+
+                with c1:
+                    st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
+
+                with c2:
+                    st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
+
+                with c3:
+                    casa = st.number_input(
+                        "Gols mandante",
+                        min_value=0,
+                        max_value=30,
+                        value=int(atual.get("casa", 0)),
+                        disabled=lock,
+                        key=f"{usuario}_{j['id']}_c",
+                        label_visibility="collapsed"
+                    )
+
+                with c4:
+                    st.markdown("<div class='texto-x'>x</div>", unsafe_allow_html=True)
+
+                with c5:
+                    fora = st.number_input(
+                        "Gols visitante",
+                        min_value=0,
+                        max_value=30,
+                        value=int(atual.get("fora", 0)),
+                        disabled=lock,
+                        key=f"{usuario}_{j['id']}_f",
+                        label_visibility="collapsed"
+                    )
+
+                with c6:
+                    st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
+
+                with c7:
+                    if lock:
+                        st.markdown("<div class='linha-jogo status-fechado'>🔒 Fechado</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<div class='linha-jogo status-aberto'>✅ Aberto</div>", unsafe_allow_html=True)
 
                 if not lock:
-                    palpites[usuario][j["id"]] = {"casa": casa, "fora": fora, "salvo_em": datetime.now(TZ).isoformat()}
+                    palpites[usuario][j["id"]] = {
+                        "casa": casa,
+                        "fora": fora,
+                        "salvo_em": datetime.now(TZ).isoformat()
+                    }
 
-        if st.button("Salvar meus palpites"):
+        if st.button("Salvar meus palpites", use_container_width=True):
             save_json(PALPITES_FILE, palpites)
             st.success("Palpites salvos!")
 
@@ -257,18 +411,63 @@ def app():
     else:
         if is_admin:
             st.subheader("Lançar resultados reais")
+
             for grupo in sorted(set(j["grupo"] for j in JOGOS)):
-                st.markdown(f"### Grupo {grupo}")
+                st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
+
+                h1, h2, h3, h4, h5, h6 = st.columns([1.35, 2.25, 0.62, 0.22, 0.62, 2.25])
+                h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
+                h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
+                h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+                h4.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
+                h5.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+                h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
+
                 for j in [x for x in JOGOS if x["grupo"] == grupo]:
                     atual = resultados.get(j["id"], {})
-                    cols = st.columns([2,3,1,1,3])
-                    cols[0].write(datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M"))
-                    cols[1].write(j["mandante"])
-                    casa = cols[2].number_input("", 0, 30, int(atual.get("casa", 0)), key=f"real_{j['id']}_c")
-                    fora = cols[3].number_input("", 0, 30, int(atual.get("fora", 0)), key=f"real_{j['id']}_f")
-                    cols[4].write(j["visitante"])
-                    resultados[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": datetime.now(TZ).isoformat()}
-            if st.button("Salvar resultados reais"):
+                    data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
+
+                    c1, c2, c3, c4, c5, c6 = st.columns([1.35, 2.25, 0.62, 0.22, 0.62, 2.25])
+
+                    with c1:
+                        st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
+
+                    with c2:
+                        st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
+
+                    with c3:
+                        casa = st.number_input(
+                            "Gols mandante real",
+                            min_value=0,
+                            max_value=30,
+                            value=int(atual.get("casa", 0)),
+                            key=f"real_{j['id']}_c",
+                            label_visibility="collapsed"
+                        )
+
+                    with c4:
+                        st.markdown("<div class='texto-x'>x</div>", unsafe_allow_html=True)
+
+                    with c5:
+                        fora = st.number_input(
+                            "Gols visitante real",
+                            min_value=0,
+                            max_value=30,
+                            value=int(atual.get("fora", 0)),
+                            key=f"real_{j['id']}_f",
+                            label_visibility="collapsed"
+                        )
+
+                    with c6:
+                        st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
+
+                    resultados[j["id"]] = {
+                        "casa": casa,
+                        "fora": fora,
+                        "salvo_em": datetime.now(TZ).isoformat()
+                    }
+
+            if st.button("Salvar resultados reais", use_container_width=True):
                 save_json(RESULTADOS_FILE, resultados)
                 st.success("Resultados reais salvos!")
         else:
