@@ -291,6 +291,80 @@ def jogo_bloqueado(data_hora_str):
     inicio = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M").replace(tzinfo=TZ)
     return datetime.now(TZ) >= inicio - timedelta(hours=LOCK_HOURS_BEFORE)
 
+
+# ===================== GERENCIAR USUÁRIOS =====================
+def gerenciar_usuarios():
+    st.subheader("👥 Gerenciar usuários")
+    st.info("Área exclusiva do admin para alterar nomes ou excluir participantes.")
+
+    users = load_json(USERS_FILE, {})
+    palpites = load_json(PALPITES_FILE, {})
+
+    admin_name = ADMIN_USER.upper()
+    lista_usuarios = sorted([u for u in users.keys() if u != admin_name])
+
+    if not lista_usuarios:
+        st.warning("Nenhum usuário cadastrado ainda.")
+        return
+
+    st.markdown("### Usuários cadastrados")
+    df_users = pd.DataFrame({"Usuário": lista_usuarios})
+    st.dataframe(df_users, use_container_width=True, hide_index=True)
+
+    st.divider()
+    st.markdown("### Alterar nome do usuário")
+
+    usuario_antigo = st.selectbox(
+        "Selecione o usuário",
+        lista_usuarios,
+        key="admin_usuario_antigo"
+    )
+
+    novo_nome = st.text_input(
+        "Novo nome",
+        value=usuario_antigo,
+        key="admin_novo_nome"
+    ).strip().upper()
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("✏️ Alterar nome", use_container_width=True):
+            if not novo_nome:
+                st.warning("Informe um novo nome válido.")
+            elif novo_nome == admin_name:
+                st.error("Esse nome é reservado para o admin.")
+            elif novo_nome == usuario_antigo:
+                st.warning("O novo nome é igual ao nome atual.")
+            elif novo_nome in users:
+                st.error("Já existe um usuário com esse nome.")
+            else:
+                # Renomeia no arquivo de usuários
+                users[novo_nome] = users.pop(usuario_antigo)
+                users[novo_nome]["alterado_em"] = datetime.now(TZ).isoformat()
+                users[novo_nome]["nome_anterior"] = usuario_antigo
+
+                # Migra também os palpites para manter a pontuação
+                if usuario_antigo in palpites:
+                    palpites[novo_nome] = palpites.pop(usuario_antigo)
+
+                save_json(USERS_FILE, users)
+                save_json(PALPITES_FILE, palpites)
+
+                st.success(f"Usuário alterado de {usuario_antigo} para {novo_nome}.")
+                st.rerun()
+
+    with col2:
+        if st.button("🗑️ Excluir usuário", use_container_width=True):
+            users.pop(usuario_antigo, None)
+            palpites.pop(usuario_antigo, None)
+
+            save_json(USERS_FILE, users)
+            save_json(PALPITES_FILE, palpites)
+
+            st.success(f"Usuário {usuario_antigo} excluído.")
+            st.rerun()
+
 # ===================== APP =====================
 def app():
     aplicar_estilo()
@@ -306,7 +380,16 @@ def app():
     resultados = load_json(RESULTADOS_FILE, {})
     palpites.setdefault(usuario, {})
 
-    menu = st.sidebar.radio("Menu", ["Meus palpites", "Classificação", "Resultados reais" if is_admin else "Ver resultados"])
+    if is_admin:
+        menu = st.sidebar.radio(
+            "Menu",
+            ["Meus palpites", "Classificação", "Resultados reais", "Gerenciar usuários"]
+        )
+    else:
+        menu = st.sidebar.radio(
+            "Menu",
+            ["Meus palpites", "Classificação", "Ver resultados"]
+        )
 
     st.markdown("<h1 style='text-align:center'>🏆 BOLÃO DA COPA DO MUNDO 2026 🏆</h1>", unsafe_allow_html=True)
 
@@ -407,6 +490,12 @@ def app():
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.warning("Ainda não há palpites.")
+
+    elif menu == "Gerenciar usuários":
+        if is_admin:
+            gerenciar_usuarios()
+        else:
+            st.error("Você não tem permissão para acessar esta área.")
 
     else:
         if is_admin:
