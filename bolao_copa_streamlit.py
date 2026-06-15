@@ -504,8 +504,100 @@ def resultado_tipo(gols_casa, gols_fora):
     return "D"
 
 
+def valor_em_branco(valor):
+    return valor is None or valor == "" or valor == "-"
+
+
+def palpite_valido(palpite):
+    """
+    Regra importante:
+    - Palpite novo só vale se tiver preenchido=True.
+    - Palpite antigo 0x0 sem preenchido=True é considerado em branco,
+      porque nas versões antigas o sistema salvava 0x0 automaticamente.
+    - Palpite antigo diferente de 0x0 continua valendo.
+    """
+    if not isinstance(palpite, dict):
+        return False
+
+    if "casa" not in palpite or "fora" not in palpite:
+        return False
+
+    casa = palpite.get("casa")
+    fora = palpite.get("fora")
+
+    if valor_em_branco(casa) or valor_em_branco(fora):
+        return False
+
+    try:
+        casa_int = int(casa)
+        fora_int = int(fora)
+    except Exception:
+        return False
+
+    if palpite.get("preenchido") is True:
+        return True
+
+    # Compatibilidade com dados antigos:
+    # 0x0 sem a marcação preenchido=True não conta como palpite.
+    if casa_int == 0 and fora_int == 0:
+        return False
+
+    return True
+
+
+def valor_palpite_para_tela(palpite, campo):
+    if not isinstance(palpite, dict):
+        return "-"
+
+    if not palpite_valido(palpite):
+        return "-"
+
+    valor = palpite.get(campo)
+    if valor_em_branco(valor):
+        return "-"
+
+    try:
+        return int(valor)
+    except Exception:
+        return "-"
+
+
+def seletor_gols(label, atual, campo, disabled, key):
+    opcoes = ["-"] + list(range(0, 31))
+    valor = valor_palpite_para_tela(atual, campo)
+    indice = opcoes.index(valor) if valor in opcoes else 0
+
+    return st.selectbox(
+        label,
+        opcoes,
+        index=indice,
+        disabled=disabled,
+        key=key,
+        label_visibility="collapsed",
+        format_func=lambda x: "-" if x == "-" else str(x),
+    )
+
+
+def aplicar_palpite_temp(palpites_temp, jogo_id, casa, fora, extras=None):
+    if casa == "-" or fora == "-":
+        palpites_temp.pop(jogo_id, None)
+        return
+
+    dados = {
+        "casa": int(casa),
+        "fora": int(fora),
+        "preenchido": True,
+        "salvo_em": now_iso(),
+    }
+
+    if extras:
+        dados.update(extras)
+
+    palpites_temp[jogo_id] = dados
+
+
 def calcula_pontos(palpite, real):
-    if palpite is None or real is None:
+    if not palpite_valido(palpite) or real is None:
         return 0, "Pendente"
 
     pc, pf = int(palpite["casa"]), int(palpite["fora"])
@@ -523,6 +615,7 @@ def calcula_pontos(palpite, real):
 def jogo_bloqueado(data_hora_str):
     inicio = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M").replace(tzinfo=TZ)
     return datetime.now(TZ) >= inicio - timedelta(hours=LOCK_HOURS_BEFORE)
+
 
 
 # ===================== GERENCIAR USUÁRIOS =====================
@@ -653,39 +746,38 @@ def editar_palpites_admin():
             with c2:
                 st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
             with c3:
-                casa = st.number_input(
+                casa = seletor_gols(
                     "Gols mandante",
-                    min_value=0,
-                    max_value=30,
-                    value=int(atual.get("casa", 0)),
+                    atual,
+                    "casa",
                     disabled=False,
                     key=f"admin_edit_{usuario_alvo}_{j['id']}_c",
-                    label_visibility="collapsed",
                 )
             with c4:
                 st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
             with c5:
-                fora = st.number_input(
+                fora = seletor_gols(
                     "Gols visitante",
-                    min_value=0,
-                    max_value=30,
-                    value=int(atual.get("fora", 0)),
+                    atual,
+                    "fora",
                     disabled=False,
                     key=f"admin_edit_{usuario_alvo}_{j['id']}_f",
-                    label_visibility="collapsed",
                 )
             with c6:
                 st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
             with c7:
                 st.markdown("<div class='linha-jogo status-aberto'>🔓 Admin</div>", unsafe_allow_html=True)
 
-            palpites_temp[j["id"]] = {
-                "casa": casa,
-                "fora": fora,
-                "salvo_em": now_iso(),
-                "editado_por_admin": True,
-                "admin": st.session_state.get("usuario", ADMIN_USER),
-            }
+            aplicar_palpite_temp(
+                palpites_temp,
+                j["id"],
+                casa,
+                fora,
+                extras={
+                    "editado_por_admin": True,
+                    "admin": st.session_state.get("usuario", ADMIN_USER),
+                },
+            )
 
     if st.button(f"Salvar palpites de {usuario_alvo}", use_container_width=True, key=f"salvar_palpites_admin_{usuario_alvo}"):
         save_palpites_usuario(usuario_alvo, palpites_temp)
@@ -733,6 +825,7 @@ def app():
         - **3 pontos**: acertou o placar exato.
         - **1 ponto**: acertou o resultado **W/D/L**: vitória do mandante, empate ou vitória do visitante.
         - **0 pontos**: errou o resultado.
+        - **Sem pontuação**: se deixar `-`, fica como palpite não preenchido.
         """)
 
         palpites_temp = dict(palpites_usuario)
@@ -761,11 +854,11 @@ def app():
                 with c2:
                     st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
                 with c3:
-                    casa = st.number_input("Gols mandante", min_value=0, max_value=30, value=int(atual.get("casa", 0)), disabled=lock, key=f"{usuario}_{j['id']}_c", label_visibility="collapsed")
+                    casa = seletor_gols("Gols mandante", atual, "casa", disabled=lock, key=f"{usuario}_{j['id']}_c")
                 with c4:
                     st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
                 with c5:
-                    fora = st.number_input("Gols visitante", min_value=0, max_value=30, value=int(atual.get("fora", 0)), disabled=lock, key=f"{usuario}_{j['id']}_f", label_visibility="collapsed")
+                    fora = seletor_gols("Gols visitante", atual, "fora", disabled=lock, key=f"{usuario}_{j['id']}_f")
                 with c6:
                     st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
                 with c7:
@@ -775,7 +868,7 @@ def app():
                         st.markdown("<div class='linha-jogo status-aberto'>✅ Aberto</div>", unsafe_allow_html=True)
 
                 if not lock:
-                    palpites_temp[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": now_iso()}
+                    aplicar_palpite_temp(palpites_temp, j["id"], casa, fora)
 
         if st.button("Salvar meus palpites", use_container_width=True):
             save_palpites_usuario(usuario, palpites_temp)
