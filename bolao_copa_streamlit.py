@@ -297,7 +297,7 @@ def delete_user(usuario):
     db.collection("usuarios").document(usuario).delete()
 
 
-def create_user(usuario, senha=SENHA_PADRAO, master=False, trocar_senha=True):
+def create_user(usuario, senha=SENHA_PADRAO, master=False, trocar_senha=False):
     usuario = normalize_user(usuario)
     salt, senha_hash = hash_password(senha)
     save_user(usuario, {
@@ -324,16 +324,37 @@ def reset_password(usuario):
 
 
 def ensure_initial_users():
-    """Cria admin e participantes iniciais se ainda não existirem no Firebase."""
+    """
+    Cria admin e participantes iniciais se ainda não existirem no Firebase.
+
+    Regra atual:
+    - Usuário novo entra com senha 123 e NÃO é obrigado a trocar no primeiro login.
+    - Só será obrigado a trocar se o admin usar o botão de redefinir senha.
+
+    Também corrige usuários que foram criados pela versão anterior do script
+    com trocar_senha=True no primeiro login. Se o campo senha_redefinida_em
+    não existir, entendemos que não foi uma redefinição feita pelo admin.
+    """
     users = get_all_users()
 
     if ADMIN_USER not in users:
-        create_user(ADMIN_USER, SENHA_PADRAO, master=True, trocar_senha=True)
+        create_user(ADMIN_USER, SENHA_PADRAO, master=True, trocar_senha=False)
 
     for usuario in USUARIOS_INICIAIS:
         usuario = normalize_user(usuario)
         if usuario not in users:
-            create_user(usuario, SENHA_PADRAO, master=False, trocar_senha=True)
+            create_user(usuario, SENHA_PADRAO, master=False, trocar_senha=False)
+
+    # Migração automática: desfaz a obrigação de trocar senha dos usuários
+    # criados pela versão antiga, sem atrapalhar uma redefinição feita pelo admin.
+    users = get_all_users()
+    for usuario, dados in users.items():
+        if dados.get("trocar_senha", False) and not dados.get("senha_redefinida_em"):
+            save_user(usuario, {
+                "trocar_senha": False,
+                "atualizado_em": now_iso(),
+                "migrado_troca_senha_primeiro_login": True,
+            }, merge=True)
 
 
 def get_palpites_usuario(usuario):
@@ -418,7 +439,7 @@ def login_screen():
     ensure_initial_users()
 
     st.title("🏆 Bolão Copa do Mundo 2026")
-    st.info("Usuários iniciais criados com senha padrão **123**. No primeiro login, será obrigatório criar uma nova senha.")
+    st.info("Usuários iniciais criados com senha padrão **123**. A troca de senha só será obrigatória quando o admin redefinir a senha do usuário.")
 
     usuario = normalize_user(st.text_input("Usuário", key="login_user"))
     senha = st.text_input("Senha", type="password", key="login_pass")
@@ -545,8 +566,8 @@ def gerenciar_usuarios():
         elif novo_usuario_manual == admin_name:
             st.error("Esse nome é reservado para o admin.")
         else:
-            create_user(novo_usuario_manual, SENHA_PADRAO, master=False, trocar_senha=True)
-            st.success(f"Usuário {novo_usuario_manual} criado com senha 123.")
+            create_user(novo_usuario_manual, SENHA_PADRAO, master=False, trocar_senha=False)
+            st.success(f"Usuário {novo_usuario_manual} criado com senha 123. Ele poderá usar essa senha até o admin redefinir.")
             st.rerun()
 
 
