@@ -545,10 +545,12 @@ def login_screen():
     tab_login, tab_criar = st.tabs(["Entrar", "Criar usuário"])
 
     with tab_login:
-        usuario = normalize_user(st.text_input("Usuário", key="login_user"))
-        senha = st.text_input("Senha", type="password", key="login_pass")
+        with st.form("form_login"):
+            usuario = normalize_user(st.text_input("Usuário", key="login_user"))
+            senha = st.text_input("Senha", type="password", key="login_pass")
+            entrar = st.form_submit_button("Entrar", use_container_width=True)
 
-        if st.button("Entrar", use_container_width=True, key="btn_login"):
+        if entrar:
             user_data = get_user(usuario)
 
             if not usuario or not senha:
