@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import hashlib
 import secrets
+import html
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -126,6 +127,78 @@ JOGOS = [
 ]
 
 
+
+# ===================== BANDEIRAS =====================
+# Usa imagens de bandeiras via FlagCDN, no estilo “ícone antes do time”.
+# Códigos especiais: Inglaterra e Escócia usam subdivisões do Reino Unido.
+BANDEIRAS_TIMES = {
+    "México": "mx",
+    "África do Sul": "za",
+    "Coreia do Sul": "kr",
+    "República Tcheca": "cz",
+    "Canadá": "ca",
+    "Bósnia e Herzegovina": "ba",
+    "Catar": "qa",
+    "Suíça": "ch",
+    "Brasil": "br",
+    "Marrocos": "ma",
+    "Haiti": "ht",
+    "Escócia": "gb-sct",
+    "Estados Unidos": "us",
+    "Paraguai": "py",
+    "Austrália": "au",
+    "Turquia": "tr",
+    "Alemanha": "de",
+    "Curaçao": "cw",
+    "Costa do Marfim": "ci",
+    "Equador": "ec",
+    "Holanda": "nl",
+    "Japão": "jp",
+    "Suécia": "se",
+    "Tunísia": "tn",
+    "Bélgica": "be",
+    "Egito": "eg",
+    "Irã": "ir",
+    "Nova Zelândia": "nz",
+    "Espanha": "es",
+    "Cabo Verde": "cv",
+    "Arábia Saudita": "sa",
+    "Uruguai": "uy",
+    "França": "fr",
+    "Senegal": "sn",
+    "Iraque": "iq",
+    "Noruega": "no",
+    "Argentina": "ar",
+    "Argélia": "dz",
+    "Áustria": "at",
+    "Jordânia": "jo",
+    "Portugal": "pt",
+    "RD do Congo": "cd",
+    "Uzbequistão": "uz",
+    "Colômbia": "co",
+    "Inglaterra": "gb-eng",
+    "Croácia": "hr",
+    "Gana": "gh",
+    "Panamá": "pa",
+}
+
+
+def time_com_bandeira(nome_time):
+    """Retorna HTML com imagem da bandeira + nome do time."""
+    nome_seguro = html.escape(nome_time or "")
+    codigo = BANDEIRAS_TIMES.get(nome_time)
+
+    if not codigo:
+        return nome_seguro
+
+    url = f"https://flagcdn.com/w40/{codigo}.png"
+    return (
+        "<span class='time-flag-wrap'>"
+        f"<img class='flag-img' src='{url}' alt='Bandeira {nome_seguro}' loading='lazy'>"
+        f"<span>{nome_seguro}</span>"
+        "</span>"
+    )
+
 # ===================== ESTILO =====================
 def aplicar_estilo():
     st.markdown("""
@@ -182,6 +255,26 @@ def aplicar_estilo():
         color: #ffffff;
         font-weight: 700;
         font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .time-flag-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .flag-img {
+        width: 30px;
+        height: 20px;
+        object-fit: cover;
+        border-radius: 2px;
+        border: 1px solid rgba(255,255,255,0.28);
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.18);
+        flex: 0 0 auto;
     }
 
     .texto-x {
@@ -744,7 +837,7 @@ def editar_palpites_admin():
             with c1:
                 st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
             with c2:
-                st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
             with c3:
                 casa = seletor_gols(
                     "Gols mandante",
@@ -764,7 +857,7 @@ def editar_palpites_admin():
                     key=f"admin_edit_{usuario_alvo}_{j['id']}_f",
                 )
             with c6:
-                st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
             with c7:
                 st.markdown("<div class='linha-jogo status-aberto'>🔓 Admin</div>", unsafe_allow_html=True)
 
@@ -852,7 +945,7 @@ def app():
                 with c1:
                     st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
                 with c2:
-                    st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
                 with c3:
                     casa = seletor_gols("Gols mandante", atual, "casa", disabled=lock, key=f"{usuario}_{j['id']}_c")
                 with c4:
@@ -860,7 +953,7 @@ def app():
                 with c5:
                     fora = seletor_gols("Gols visitante", atual, "fora", disabled=lock, key=f"{usuario}_{j['id']}_f")
                 with c6:
-                    st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
                 with c7:
                     if lock:
                         st.markdown("<div class='linha-jogo status-fechado'>🔒 Fechado</div>", unsafe_allow_html=True)
@@ -961,7 +1054,7 @@ def app():
                     with c1:
                         st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
                     with c2:
-                        st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
                     with c3:
                         casa = st.number_input("Gols mandante real", min_value=0, max_value=30, value=int(atual.get("casa", 0)), key=f"real_{j['id']}_c", label_visibility="collapsed")
                     with c4:
@@ -969,7 +1062,7 @@ def app():
                     with c5:
                         fora = st.number_input("Gols visitante real", min_value=0, max_value=30, value=int(atual.get("fora", 0)), key=f"real_{j['id']}_f", label_visibility="collapsed")
                     with c6:
-                        st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
                     with c7:
                         marcado = st.checkbox("OK", value=ja_definido, key=f"real_{j['id']}_check", label_visibility="collapsed")
 
