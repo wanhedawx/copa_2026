@@ -448,26 +448,51 @@ def login_screen():
     ensure_initial_users()
 
     st.title("🏆 Bolão Copa do Mundo 2026")
-    st.info("Usuários iniciais criados com senha padrão **123**. A troca de senha só será obrigatória quando o admin redefinir a senha do usuário.")
 
-    usuario = normalize_user(st.text_input("Usuário", key="login_user"))
-    senha = st.text_input("Senha", type="password", key="login_pass")
+    tab_login, tab_criar = st.tabs(["Entrar", "Criar usuário"])
 
-    if st.button("Entrar", use_container_width=True):
-        user_data = get_user(usuario)
+    with tab_login:
+        usuario = normalize_user(st.text_input("Usuário", key="login_user"))
+        senha = st.text_input("Senha", type="password", key="login_pass")
 
-        if not usuario or not senha:
-            st.warning("Informe usuário e senha.")
-        elif not user_data:
-            st.error("Usuário ou senha inválidos.")
-        elif not user_data.get("ativo", True):
-            st.error("Usuário inativo. Fale com o admin.")
-        elif check_password(senha, user_data.get("salt", ""), user_data.get("senha_hash", "")):
-            st.session_state["usuario"] = usuario
-            st.session_state["master"] = bool(user_data.get("master", False))
-            st.rerun()
-        else:
-            st.error("Usuário ou senha inválidos.")
+        if st.button("Entrar", use_container_width=True, key="btn_login"):
+            user_data = get_user(usuario)
+
+            if not usuario or not senha:
+                st.warning("Informe usuário e senha.")
+            elif not user_data:
+                st.error("Usuário ou senha inválidos.")
+            elif not user_data.get("ativo", True):
+                st.error("Usuário inativo. Fale com o admin.")
+            elif check_password(senha, user_data.get("salt", ""), user_data.get("senha_hash", "")):
+                st.session_state["usuario"] = usuario
+                st.session_state["master"] = bool(user_data.get("master", False))
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
+
+    with tab_criar:
+        novo_usuario = normalize_user(st.text_input("Novo usuário", key="criar_user"))
+        nova_senha = st.text_input("Senha", type="password", key="criar_senha")
+        confirmar_senha = st.text_input("Confirmar senha", type="password", key="criar_confirma_senha")
+
+        if st.button("Criar usuário", use_container_width=True, key="btn_criar_usuario"):
+            users = get_all_users()
+            admin_name = ADMIN_USER.upper()
+
+            if not novo_usuario or not nova_senha or not confirmar_senha:
+                st.warning("Preencha usuário, senha e confirmação.")
+            elif novo_usuario == admin_name:
+                st.error("Esse nome é reservado para o admin.")
+            elif novo_usuario in users:
+                st.error("Esse usuário já existe.")
+            elif nova_senha != confirmar_senha:
+                st.error("As senhas não conferem.")
+            elif len(nova_senha) < 3:
+                st.error("A senha precisa ter pelo menos 3 caracteres.")
+            else:
+                create_user(novo_usuario, nova_senha, master=False, trocar_senha=False)
+                st.success("Usuário criado! Agora faça login na aba Entrar.")
 
 
 # ===================== REGRAS =====================
@@ -567,17 +592,105 @@ def gerenciar_usuarios():
     st.divider()
     st.markdown("### Criar novo usuário manualmente")
     novo_usuario_manual = normalize_user(st.text_input("Nome do novo usuário", key="novo_usuario_manual"))
-    if st.button("➕ Criar usuário com senha 123", use_container_width=True):
-        if not novo_usuario_manual:
-            st.warning("Informe o nome do usuário.")
+    senha_manual = st.text_input("Senha do novo usuário", type="password", key="senha_usuario_manual")
+    confirma_senha_manual = st.text_input("Confirmar senha do novo usuário", type="password", key="confirma_senha_usuario_manual")
+
+    if st.button("➕ Criar usuário", use_container_width=True, key="btn_criar_usuario_admin"):
+        if not novo_usuario_manual or not senha_manual or not confirma_senha_manual:
+            st.warning("Informe o nome do usuário, a senha e a confirmação.")
         elif novo_usuario_manual in users:
             st.error("Esse usuário já existe.")
         elif novo_usuario_manual == admin_name:
             st.error("Esse nome é reservado para o admin.")
+        elif senha_manual != confirma_senha_manual:
+            st.error("As senhas não conferem.")
+        elif len(senha_manual) < 3:
+            st.error("A senha precisa ter pelo menos 3 caracteres.")
         else:
-            create_user(novo_usuario_manual, SENHA_PADRAO, master=False, trocar_senha=False)
-            st.success(f"Usuário {novo_usuario_manual} criado com senha 123. Ele poderá usar essa senha até o admin redefinir.")
+            create_user(novo_usuario_manual, senha_manual, master=False, trocar_senha=False)
+            st.success(f"Usuário {novo_usuario_manual} criado com a senha informada.")
             st.rerun()
+
+
+# ===================== EDITAR PALPITES COMO ADMIN =====================
+def editar_palpites_admin():
+    st.subheader("🛠️ Editar palpites dos usuários")
+    st.warning("Modo admin: todos os jogos ficam abertos para edição, mesmo os que já passaram ou travaram.")
+
+    users = get_all_users()
+    admin_name = ADMIN_USER.upper()
+    lista_usuarios = sorted([u for u, d in users.items() if u != admin_name and d.get("ativo", True)])
+
+    if not lista_usuarios:
+        st.warning("Nenhum usuário disponível para editar.")
+        return
+
+    usuario_alvo = st.selectbox("Selecione o usuário para editar", lista_usuarios, key="admin_editar_palpites_usuario")
+    palpites_temp = dict(get_palpites_usuario(usuario_alvo))
+
+    st.markdown(f"### Editando palpites de: **{usuario_alvo}**")
+
+    for grupo in sorted(set(j["grupo"] for j in JOGOS)):
+        st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
+
+        h1, h2, h3, h4, h5, h6, h7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
+        h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
+        h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
+        h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+        h4.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
+        h5.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+        h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
+        h7.markdown("<div class='cabecalho-jogo'>Status</div>", unsafe_allow_html=True)
+
+        for j in [x for x in JOGOS if x["grupo"] == grupo]:
+            atual = palpites_temp.get(j["id"], {})
+            data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
+
+            c1, c2, c3, c4, c5, c6, c7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
+
+            with c1:
+                st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"<div class='linha-jogo texto-time'>{j['mandante']}</div>", unsafe_allow_html=True)
+            with c3:
+                casa = st.number_input(
+                    "Gols mandante",
+                    min_value=0,
+                    max_value=30,
+                    value=int(atual.get("casa", 0)),
+                    disabled=False,
+                    key=f"admin_edit_{usuario_alvo}_{j['id']}_c",
+                    label_visibility="collapsed",
+                )
+            with c4:
+                st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
+            with c5:
+                fora = st.number_input(
+                    "Gols visitante",
+                    min_value=0,
+                    max_value=30,
+                    value=int(atual.get("fora", 0)),
+                    disabled=False,
+                    key=f"admin_edit_{usuario_alvo}_{j['id']}_f",
+                    label_visibility="collapsed",
+                )
+            with c6:
+                st.markdown(f"<div class='linha-jogo texto-time'>{j['visitante']}</div>", unsafe_allow_html=True)
+            with c7:
+                st.markdown("<div class='linha-jogo status-aberto'>🔓 Admin</div>", unsafe_allow_html=True)
+
+            palpites_temp[j["id"]] = {
+                "casa": casa,
+                "fora": fora,
+                "salvo_em": now_iso(),
+                "editado_por_admin": True,
+                "admin": st.session_state.get("usuario", ADMIN_USER),
+            }
+
+    if st.button(f"Salvar palpites de {usuario_alvo}", use_container_width=True, key=f"salvar_palpites_admin_{usuario_alvo}"):
+        save_palpites_usuario(usuario_alvo, palpites_temp)
+        st.success(f"Palpites de {usuario_alvo} salvos no Firebase!")
+        st.rerun()
 
 
 # ===================== APP =====================
@@ -606,7 +719,7 @@ def app():
     resultados = get_resultados()
 
     if is_admin:
-        menu = st.sidebar.radio("Menu", ["Meus palpites", "Classificação", "Resultados reais", "Gerenciar usuários"])
+        menu = st.sidebar.radio("Menu", ["Meus palpites", "Editar palpites", "Classificação", "Resultados reais", "Gerenciar usuários"])
     else:
         menu = st.sidebar.radio("Menu", ["Meus palpites", "Classificação", "Ver resultados"])
 
@@ -668,6 +781,12 @@ def app():
             save_palpites_usuario(usuario, palpites_temp)
             st.success("Palpites salvos no Firebase!")
             st.rerun()
+
+    elif menu == "Editar palpites":
+        if is_admin:
+            editar_palpites_admin()
+        else:
+            st.error("Você não tem permissão para acessar esta área.")
 
     elif menu == "Classificação":
         st.subheader("🏅 Classificação")
