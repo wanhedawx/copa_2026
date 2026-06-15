@@ -243,7 +243,16 @@ def get_db():
         cred = credentials.Certificate(dict(st.secrets["firebase_service_account"]))
         firebase_admin.initialize_app(cred)
 
-    return firestore.client()
+    # IMPORTANTE:
+    # O banco que você criou no Firebase está com ID "default".
+    # Se não informar isso, o SDK tenta abrir o banco antigo "(default)"
+    # e pode gerar erro NotFound.
+    try:
+        return firestore.client(database_id="default")
+    except TypeError:
+        # Compatibilidade com versões antigas do firebase-admin.
+        # Se cair aqui, atualize o requirements.txt para firebase-admin>=6.5.0
+        return firestore.client()
 
 
 def now_iso():
