@@ -1,17 +1,29 @@
 import streamlit as st
 import pandas as pd
-import json, hashlib, secrets
-from pathlib import Path
+import hashlib
+import secrets
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import firebase_admin
+from firebase_admin import credentials, firestore
+
 # ===================== CONFIG =====================
 TZ = ZoneInfo("America/Maceio")
-USERS_FILE = Path("usuarios.json")
-PALPITES_FILE = Path("palpites.json")
-RESULTADOS_FILE = Path("resultados_reais.json")
 LOCK_HOURS_BEFORE = 1
-ADMIN_USER = "admin"  # crie esse usuário no primeiro login e use como admin
+ADMIN_USER = "ADMIN"
+SENHA_PADRAO = "123"
+
+USUARIOS_INICIAIS = [
+    "CHEVETTE67",
+    "SAPAS",
+    "ANAO PIKENO",
+    "CHARQUINHO",
+    "GAGUINHO",
+    "FILHO PREFERIDO",
+    "MACACO",
+    "REALAL",
+]
 
 # ===================== JOGOS =====================
 # Formato: id, data_hora, grupo, mandante, visitante
@@ -112,6 +124,7 @@ JOGOS = [
     {"id":"L05","data_hora":"2026-06-27 18:00","grupo":"L","mandante":"Panamá","visitante":"Inglaterra"},
     {"id":"L06","data_hora":"2026-06-27 18:00","grupo":"L","mandante":"Croácia","visitante":"Gana"},
 ]
+
 
 # ===================== ESTILO =====================
 def aplicar_estilo():
@@ -214,68 +227,229 @@ def aplicar_estilo():
     </style>
     """, unsafe_allow_html=True)
 
-# ===================== FUNÇÕES JSON =====================
-def load_json(path, default):
-    if not path.exists():
-        path.write_text(json.dumps(default, ensure_ascii=False, indent=2), encoding="utf-8")
-    return json.loads(path.read_text(encoding="utf-8"))
 
-def save_json(path, data):
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+# ===================== FIREBASE =====================
+@st.cache_resource
+def get_db():
+    """
+    Para funcionar no Streamlit Cloud, coloque o JSON da conta de serviço em:
+    Settings > Secrets, com o nome [firebase_service_account]
+    """
+    if not firebase_admin._apps:
+        if "firebase_service_account" not in st.secrets:
+            st.error("Configuração do Firebase não encontrada em st.secrets['firebase_service_account'].")
+            st.stop()
 
-# ===================== LOGIN =====================
+        cred = credentials.Certificate(dict(st.secrets["firebase_service_account"]))
+        firebase_admin.initialize_app(cred)
+
+    return firestore.client()
+
+
+def now_iso():
+    return datetime.now(TZ).isoformat()
+
+
 def hash_password(password, salt=None):
     salt = salt or secrets.token_hex(16)
     senha_hash = hashlib.sha256((salt + password).encode()).hexdigest()
     return salt, senha_hash
 
+
 def check_password(password, salt, senha_hash):
     return hashlib.sha256((salt + password).encode()).hexdigest() == senha_hash
 
+
+def normalize_user(usuario):
+    return (usuario or "").strip().upper()
+
+
+def doc_to_dict(doc):
+    dados = doc.to_dict() or {}
+    dados["id"] = doc.id
+    return dados
+
+
+def get_all_users():
+    db = get_db()
+    docs = db.collection("usuarios").stream()
+    return {doc.id: doc.to_dict() or {} for doc in docs}
+
+
+def get_user(usuario):
+    db = get_db()
+    usuario = normalize_user(usuario)
+    snap = db.collection("usuarios").document(usuario).get()
+    if snap.exists:
+        return snap.to_dict() or {}
+    return None
+
+
+def save_user(usuario, dados, merge=True):
+    db = get_db()
+    usuario = normalize_user(usuario)
+    db.collection("usuarios").document(usuario).set(dados, merge=merge)
+
+
+def delete_user(usuario):
+    db = get_db()
+    usuario = normalize_user(usuario)
+    db.collection("usuarios").document(usuario).delete()
+
+
+def create_user(usuario, senha=SENHA_PADRAO, master=False, trocar_senha=True):
+    usuario = normalize_user(usuario)
+    salt, senha_hash = hash_password(senha)
+    save_user(usuario, {
+        "salt": salt,
+        "senha_hash": senha_hash,
+        "master": bool(master),
+        "trocar_senha": bool(trocar_senha),
+        "ativo": True,
+        "criado_em": now_iso(),
+        "atualizado_em": now_iso(),
+    }, merge=False)
+
+
+def reset_password(usuario):
+    usuario = normalize_user(usuario)
+    salt, senha_hash = hash_password(SENHA_PADRAO)
+    save_user(usuario, {
+        "salt": salt,
+        "senha_hash": senha_hash,
+        "trocar_senha": True,
+        "atualizado_em": now_iso(),
+        "senha_redefinida_em": now_iso(),
+    }, merge=True)
+
+
+def ensure_initial_users():
+    """Cria admin e participantes iniciais se ainda não existirem no Firebase."""
+    users = get_all_users()
+
+    if ADMIN_USER not in users:
+        create_user(ADMIN_USER, SENHA_PADRAO, master=True, trocar_senha=True)
+
+    for usuario in USUARIOS_INICIAIS:
+        usuario = normalize_user(usuario)
+        if usuario not in users:
+            create_user(usuario, SENHA_PADRAO, master=False, trocar_senha=True)
+
+
+def get_palpites_usuario(usuario):
+    db = get_db()
+    usuario = normalize_user(usuario)
+    doc = db.collection("palpites").document(usuario).get()
+    return doc.to_dict() or {}
+
+
+def save_palpites_usuario(usuario, palpites_usuario):
+    db = get_db()
+    usuario = normalize_user(usuario)
+    db.collection("palpites").document(usuario).set(palpites_usuario)
+
+
+def get_all_palpites():
+    db = get_db()
+    return {doc.id: doc.to_dict() or {} for doc in db.collection("palpites").stream()}
+
+
+def delete_palpites_usuario(usuario):
+    db = get_db()
+    usuario = normalize_user(usuario)
+    db.collection("palpites").document(usuario).delete()
+
+
+def rename_palpites_usuario(usuario_antigo, novo_nome):
+    db = get_db()
+    usuario_antigo = normalize_user(usuario_antigo)
+    novo_nome = normalize_user(novo_nome)
+    dados = get_palpites_usuario(usuario_antigo)
+    if dados:
+        db.collection("palpites").document(novo_nome).set(dados)
+    db.collection("palpites").document(usuario_antigo).delete()
+
+
+def get_resultados():
+    db = get_db()
+    doc = db.collection("configuracoes").document("resultados_reais").get()
+    return doc.to_dict() or {}
+
+
+def save_resultados(resultados):
+    db = get_db()
+    db.collection("configuracoes").document("resultados_reais").set(resultados)
+
+
+# ===================== LOGIN =====================
+def tela_trocar_senha(usuario, user_data):
+    st.warning("Você precisa criar uma nova senha antes de continuar.")
+
+    nova = st.text_input("Nova senha", type="password", key="nova_senha_obrigatoria")
+    confirmar = st.text_input("Confirmar nova senha", type="password", key="confirma_senha_obrigatoria")
+
+    if st.button("Salvar nova senha", use_container_width=True):
+        if not nova or not confirmar:
+            st.error("Preencha a nova senha e a confirmação.")
+        elif nova != confirmar:
+            st.error("As senhas não conferem.")
+        elif len(nova) < 4:
+            st.error("A senha precisa ter pelo menos 4 caracteres.")
+        elif nova == SENHA_PADRAO:
+            st.error("Escolha uma senha diferente da senha padrão 123.")
+        else:
+            salt, senha_hash = hash_password(nova)
+            save_user(usuario, {
+                "salt": salt,
+                "senha_hash": senha_hash,
+                "trocar_senha": False,
+                "atualizado_em": now_iso(),
+                "senha_alterada_em": now_iso(),
+            }, merge=True)
+            st.success("Senha alterada! Faça login novamente.")
+            st.session_state.clear()
+            st.rerun()
+
+    st.stop()
+
+
 def login_screen():
     aplicar_estilo()
+    ensure_initial_users()
+
     st.title("🏆 Bolão Copa do Mundo 2026")
-    users = load_json(USERS_FILE, {})
+    st.info("Usuários iniciais criados com senha padrão **123**. No primeiro login, será obrigatório criar uma nova senha.")
 
-    tab_login, tab_cadastro = st.tabs(["Entrar", "Primeiro acesso / criar senha"])
+    usuario = normalize_user(st.text_input("Usuário", key="login_user"))
+    senha = st.text_input("Senha", type="password", key="login_pass")
 
-    with tab_login:
-        usuario = st.text_input("Usuário", key="login_user").strip().upper()
-        senha = st.text_input("Senha", type="password", key="login_pass")
-        if st.button("Entrar"):
-            if usuario in users and check_password(senha, users[usuario]["salt"], users[usuario]["senha_hash"]):
-                st.session_state["usuario"] = usuario
-                st.rerun()
-            else:
-                st.error("Usuário ou senha inválidos.")
+    if st.button("Entrar", use_container_width=True):
+        user_data = get_user(usuario)
 
-    with tab_cadastro:
-        novo = st.text_input("Crie seu usuário", key="new_user").strip().upper()
-        senha1 = st.text_input("Crie sua senha", type="password", key="new_pass1")
-        senha2 = st.text_input("Confirme sua senha", type="password", key="new_pass2")
-        if st.button("Criar acesso"):
-            if not novo or not senha1:
-                st.warning("Preencha usuário e senha.")
-            elif novo in users:
-                st.error("Esse usuário já existe.")
-            elif senha1 != senha2:
-                st.error("As senhas não conferem.")
-            else:
-                salt, senha_hash = hash_password(senha1)
-                users[novo] = {"salt": salt, "senha_hash": senha_hash, "criado_em": datetime.now(TZ).isoformat()}
-                save_json(USERS_FILE, users)
-                st.success("Usuário criado! Agora faça login.")
+        if not usuario or not senha:
+            st.warning("Informe usuário e senha.")
+        elif not user_data:
+            st.error("Usuário ou senha inválidos.")
+        elif not user_data.get("ativo", True):
+            st.error("Usuário inativo. Fale com o admin.")
+        elif check_password(senha, user_data.get("salt", ""), user_data.get("senha_hash", "")):
+            st.session_state["usuario"] = usuario
+            st.session_state["master"] = bool(user_data.get("master", False))
+            st.rerun()
+        else:
+            st.error("Usuário ou senha inválidos.")
+
 
 # ===================== REGRAS =====================
 def resultado_tipo(gols_casa, gols_fora):
     if gols_casa > gols_fora:
-        return "W"  # mandante venceu
+        return "W"
     if gols_casa < gols_fora:
-        return "L"  # visitante venceu
-    return "D"      # empate
+        return "L"
+    return "D"
+
 
 def calcula_pontos(palpite, real):
-    # Só pontua se o admin marcou/salvou resultado real daquele jogo.
     if palpite is None or real is None:
         return 0, "Pendente"
 
@@ -290,18 +464,18 @@ def calcula_pontos(palpite, real):
 
     return 0, "Errou"
 
+
 def jogo_bloqueado(data_hora_str):
     inicio = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M").replace(tzinfo=TZ)
     return datetime.now(TZ) >= inicio - timedelta(hours=LOCK_HOURS_BEFORE)
 
+
 # ===================== GERENCIAR USUÁRIOS =====================
 def gerenciar_usuarios():
     st.subheader("👥 Gerenciar usuários")
-    st.info("Área exclusiva do admin para alterar nomes ou excluir participantes.")
+    st.info("Área exclusiva do admin para alterar nomes, excluir participantes ou redefinir senha para 123.")
 
-    users = load_json(USERS_FILE, {})
-    palpites = load_json(PALPITES_FILE, {})
-
+    users = get_all_users()
     admin_name = ADMIN_USER.upper()
     lista_usuarios = sorted([u for u in users.keys() if u != admin_name])
 
@@ -310,16 +484,20 @@ def gerenciar_usuarios():
         return
 
     st.markdown("### Usuários cadastrados")
-    df_users = pd.DataFrame({"Usuário": lista_usuarios})
+    df_users = pd.DataFrame({
+        "Usuário": lista_usuarios,
+        "Trocar senha?": ["Sim" if users[u].get("trocar_senha", False) else "Não" for u in lista_usuarios],
+        "Ativo?": ["Sim" if users[u].get("ativo", True) else "Não" for u in lista_usuarios],
+    })
     st.dataframe(df_users, use_container_width=True, hide_index=True)
 
     st.divider()
-    st.markdown("### Alterar nome do usuário")
+    st.markdown("### Alterar, excluir ou redefinir senha")
 
     usuario_antigo = st.selectbox("Selecione o usuário", lista_usuarios, key="admin_usuario_antigo")
-    novo_nome = st.text_input("Novo nome", value=usuario_antigo, key="admin_novo_nome").strip().upper()
+    novo_nome = normalize_user(st.text_input("Novo nome", value=usuario_antigo, key="admin_novo_nome"))
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         if st.button("✏️ Alterar nome", use_container_width=True):
@@ -332,44 +510,70 @@ def gerenciar_usuarios():
             elif novo_nome in users:
                 st.error("Já existe um usuário com esse nome.")
             else:
-                users[novo_nome] = users.pop(usuario_antigo)
-                users[novo_nome]["alterado_em"] = datetime.now(TZ).isoformat()
-                users[novo_nome]["nome_anterior"] = usuario_antigo
+                dados_user = users[usuario_antigo]
+                dados_user["alterado_em"] = now_iso()
+                dados_user["nome_anterior"] = usuario_antigo
 
-                if usuario_antigo in palpites:
-                    palpites[novo_nome] = palpites.pop(usuario_antigo)
-
-                save_json(USERS_FILE, users)
-                save_json(PALPITES_FILE, palpites)
+                save_user(novo_nome, dados_user, merge=False)
+                delete_user(usuario_antigo)
+                rename_palpites_usuario(usuario_antigo, novo_nome)
 
                 st.success(f"Usuário alterado de {usuario_antigo} para {novo_nome}.")
                 st.rerun()
 
     with col2:
+        if st.button("🔑 Redefinir senha", use_container_width=True):
+            reset_password(usuario_antigo)
+            st.success(f"Senha de {usuario_antigo} redefinida para 123. No próximo login ele terá que criar uma nova senha.")
+            st.rerun()
+
+    with col3:
         if st.button("🗑️ Excluir usuário", use_container_width=True):
-            users.pop(usuario_antigo, None)
-            palpites.pop(usuario_antigo, None)
-
-            save_json(USERS_FILE, users)
-            save_json(PALPITES_FILE, palpites)
-
+            delete_user(usuario_antigo)
+            delete_palpites_usuario(usuario_antigo)
             st.success(f"Usuário {usuario_antigo} excluído.")
             st.rerun()
+
+    st.divider()
+    st.markdown("### Criar novo usuário manualmente")
+    novo_usuario_manual = normalize_user(st.text_input("Nome do novo usuário", key="novo_usuario_manual"))
+    if st.button("➕ Criar usuário com senha 123", use_container_width=True):
+        if not novo_usuario_manual:
+            st.warning("Informe o nome do usuário.")
+        elif novo_usuario_manual in users:
+            st.error("Esse usuário já existe.")
+        elif novo_usuario_manual == admin_name:
+            st.error("Esse nome é reservado para o admin.")
+        else:
+            create_user(novo_usuario_manual, SENHA_PADRAO, master=False, trocar_senha=True)
+            st.success(f"Usuário {novo_usuario_manual} criado com senha 123.")
+            st.rerun()
+
 
 # ===================== APP =====================
 def app():
     aplicar_estilo()
+
     usuario = st.session_state["usuario"]
-    is_admin = usuario == ADMIN_USER.upper()
+    user_data = get_user(usuario)
+
+    if not user_data:
+        st.session_state.clear()
+        st.error("Usuário não encontrado. Faça login novamente.")
+        st.stop()
+
+    if user_data.get("trocar_senha", False):
+        tela_trocar_senha(usuario, user_data)
+
+    is_admin = bool(user_data.get("master", False)) or usuario == ADMIN_USER.upper()
 
     st.sidebar.success(f"Logado como: {usuario}")
     if st.sidebar.button("Sair"):
         st.session_state.clear()
         st.rerun()
 
-    palpites = load_json(PALPITES_FILE, {})
-    resultados = load_json(RESULTADOS_FILE, {})
-    palpites.setdefault(usuario, {})
+    palpites_usuario = get_palpites_usuario(usuario)
+    resultados = get_resultados()
 
     if is_admin:
         menu = st.sidebar.radio("Menu", ["Meus palpites", "Classificação", "Resultados reais", "Gerenciar usuários"])
@@ -388,6 +592,8 @@ def app():
         - **0 pontos**: errou o resultado.
         """)
 
+        palpites_temp = dict(palpites_usuario)
+
         for grupo in sorted(set(j["grupo"] for j in JOGOS)):
             st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
 
@@ -402,7 +608,7 @@ def app():
 
             for j in [x for x in JOGOS if x["grupo"] == grupo]:
                 lock = jogo_bloqueado(j["data_hora"])
-                atual = palpites[usuario].get(j["id"], {})
+                atual = palpites_temp.get(j["id"], {})
                 data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
 
                 c1, c2, c3, c4, c5, c6, c7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
@@ -426,34 +632,31 @@ def app():
                         st.markdown("<div class='linha-jogo status-aberto'>✅ Aberto</div>", unsafe_allow_html=True)
 
                 if not lock:
-                    palpites[usuario][j["id"]] = {"casa": casa, "fora": fora, "salvo_em": datetime.now(TZ).isoformat()}
+                    palpites_temp[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": now_iso()}
 
         if st.button("Salvar meus palpites", use_container_width=True):
-            save_json(PALPITES_FILE, palpites)
-            st.success("Palpites salvos!")
+            save_palpites_usuario(usuario, palpites_temp)
+            st.success("Palpites salvos no Firebase!")
+            st.rerun()
 
     elif menu == "Classificação":
         st.subheader("🏅 Classificação")
 
-        users = load_json(USERS_FILE, {})
+        users = get_all_users()
         admin_name = ADMIN_USER.upper()
-        usuarios_validos = sorted([u for u in users.keys() if u != admin_name])
-
-        palpites_limpos = {u: dados for u, dados in palpites.items() if u in usuarios_validos}
-        if palpites_limpos != palpites:
-            palpites = palpites_limpos
-            save_json(PALPITES_FILE, palpites)
+        usuarios_validos = sorted([u for u, d in users.items() if u != admin_name and d.get("ativo", True)])
+        todos_palpites = get_all_palpites()
 
         linhas = []
         for user in usuarios_validos:
-            palp_user = palpites.get(user, {})
+            palp_user = todos_palpites.get(user, {})
             pontos = 0
             exatos = 0
             resultados_certos = 0
 
             for j in JOGOS:
                 p = palp_user.get(j["id"])
-                r = resultados.get(j["id"])  # se não existir resultado real, não pontua
+                r = resultados.get(j["id"])
                 pts, desc = calcula_pontos(p, r)
                 pontos += pts
                 if desc == "Placar exato":
@@ -488,7 +691,7 @@ def app():
             st.warning("Marque **Resultado definido** somente nos jogos que já terminaram. Jogo desmarcado não conta pontos na classificação.")
 
             if st.button("🧹 Limpar todos os resultados reais", use_container_width=True):
-                save_json(RESULTADOS_FILE, {})
+                save_resultados({})
                 st.success("Resultados reais limpos. A classificação foi zerada até você lançar novos resultados.")
                 st.rerun()
 
@@ -529,13 +732,13 @@ def app():
                         marcado = st.checkbox("OK", value=ja_definido, key=f"real_{j['id']}_check", label_visibility="collapsed")
 
                     if marcado:
-                        resultados_temp[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": datetime.now(TZ).isoformat()}
+                        resultados_temp[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": now_iso()}
                     else:
                         resultados_temp.pop(j["id"], None)
 
             if st.button("Salvar resultados reais", use_container_width=True):
-                save_json(RESULTADOS_FILE, resultados_temp)
-                st.success("Resultados reais salvos!")
+                save_resultados(resultados_temp)
+                st.success("Resultados reais salvos no Firebase!")
                 st.rerun()
 
         else:
@@ -551,8 +754,10 @@ def app():
                 })
             st.dataframe(pd.DataFrame(linhas), use_container_width=True, hide_index=True)
 
+
 # ===================== MAIN =====================
 st.set_page_config(page_title="Bolão Copa 2026", layout="wide")
+
 if "usuario" not in st.session_state:
     login_screen()
 else:
