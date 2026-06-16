@@ -1,1101 +1,1778 @@
 import streamlit as st
 import pandas as pd
-import hashlib
-import secrets
-import html
+from sqlalchemy import create_engine, text, bindparam
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from unicodedata import normalize
+import hashlib
+import io
 
-import firebase_admin
-from firebase_admin import credentials, firestore
+# =========================
+# CONFIGURAÇÕES
+# =========================
+st.set_page_config(
+    page_title="Cobrança de Carteira",
+    page_icon="📋",
+    layout="wide"
+)
 
-# ===================== CONFIG =====================
 TZ = ZoneInfo("America/Maceio")
-LOCK_HOURS_BEFORE = 1
-ADMIN_USER = "ADMIN"
-SENHA_PADRAO = "123"
 
-USUARIOS_INICIAIS = [
-    "CHEVETTE67",
-    "SAPAS",
-    "ANAO PIKENO",
-    "CHARQUINHO",
-    "GAGUINHO",
-    "FILHO PREFERIDO",
-    "MACACO",
-    "REALAL",
-]
-
-# ===================== JOGOS =====================
-# Formato: id, data_hora, grupo, mandante, visitante
-JOGOS = [
-    # GRUPO A
-    {"id":"A01","data_hora":"2026-06-11 16:00","grupo":"A","mandante":"México","visitante":"África do Sul"},
-    {"id":"A02","data_hora":"2026-06-11 23:00","grupo":"A","mandante":"Coreia do Sul","visitante":"República Tcheca"},
-    {"id":"A03","data_hora":"2026-06-18 13:00","grupo":"A","mandante":"República Tcheca","visitante":"África do Sul"},
-    {"id":"A04","data_hora":"2026-06-18 22:00","grupo":"A","mandante":"México","visitante":"Coreia do Sul"},
-    {"id":"A05","data_hora":"2026-06-24 22:00","grupo":"A","mandante":"República Tcheca","visitante":"México"},
-    {"id":"A06","data_hora":"2026-06-24 22:00","grupo":"A","mandante":"África do Sul","visitante":"Coreia do Sul"},
-
-    # GRUPO B
-    {"id":"B01","data_hora":"2026-06-12 16:00","grupo":"B","mandante":"Canadá","visitante":"Bósnia e Herzegovina"},
-    {"id":"B02","data_hora":"2026-06-13 16:00","grupo":"B","mandante":"Catar","visitante":"Suíça"},
-    {"id":"B03","data_hora":"2026-06-18 16:00","grupo":"B","mandante":"Suíça","visitante":"Bósnia e Herzegovina"},
-    {"id":"B04","data_hora":"2026-06-18 19:00","grupo":"B","mandante":"Canadá","visitante":"Catar"},
-    {"id":"B05","data_hora":"2026-06-24 16:00","grupo":"B","mandante":"Suíça","visitante":"Canadá"},
-    {"id":"B06","data_hora":"2026-06-24 16:00","grupo":"B","mandante":"Bósnia e Herzegovina","visitante":"Catar"},
-
-    # GRUPO C
-    {"id":"C01","data_hora":"2026-06-13 19:00","grupo":"C","mandante":"Brasil","visitante":"Marrocos"},
-    {"id":"C02","data_hora":"2026-06-13 22:00","grupo":"C","mandante":"Haiti","visitante":"Escócia"},
-    {"id":"C03","data_hora":"2026-06-19 19:00","grupo":"C","mandante":"Escócia","visitante":"Marrocos"},
-    {"id":"C04","data_hora":"2026-06-19 22:00","grupo":"C","mandante":"Brasil","visitante":"Haiti"},
-    {"id":"C05","data_hora":"2026-06-24 19:00","grupo":"C","mandante":"Escócia","visitante":"Brasil"},
-    {"id":"C06","data_hora":"2026-06-24 19:00","grupo":"C","mandante":"Marrocos","visitante":"Haiti"},
-
-    # GRUPO D
-    {"id":"D01","data_hora":"2026-06-12 22:00","grupo":"D","mandante":"Estados Unidos","visitante":"Paraguai"},
-    {"id":"D02","data_hora":"2026-06-14 01:00","grupo":"D","mandante":"Austrália","visitante":"Turquia"},
-    {"id":"D03","data_hora":"2026-06-19 16:00","grupo":"D","mandante":"Estados Unidos","visitante":"Austrália"},
-    {"id":"D04","data_hora":"2026-06-20 01:00","grupo":"D","mandante":"Turquia","visitante":"Paraguai"},
-    {"id":"D05","data_hora":"2026-06-25 23:00","grupo":"D","mandante":"Turquia","visitante":"Estados Unidos"},
-    {"id":"D06","data_hora":"2026-06-25 23:00","grupo":"D","mandante":"Paraguai","visitante":"Austrália"},
-
-    # GRUPO E
-    {"id":"E01","data_hora":"2026-06-14 14:00","grupo":"E","mandante":"Alemanha","visitante":"Curaçao"},
-    {"id":"E02","data_hora":"2026-06-14 20:00","grupo":"E","mandante":"Costa do Marfim","visitante":"Equador"},
-    {"id":"E03","data_hora":"2026-06-20 17:00","grupo":"E","mandante":"Alemanha","visitante":"Costa do Marfim"},
-    {"id":"E04","data_hora":"2026-06-20 17:00","grupo":"E","mandante":"Equador","visitante":"Curaçao"},
-    {"id":"E05","data_hora":"2026-06-25 17:00","grupo":"E","mandante":"Equador","visitante":"Alemanha"},
-    {"id":"E06","data_hora":"2026-06-25 17:00","grupo":"E","mandante":"Curaçao","visitante":"Costa do Marfim"},
-
-    # GRUPO F
-    {"id":"F01","data_hora":"2026-06-14 17:00","grupo":"F","mandante":"Holanda","visitante":"Japão"},
-    {"id":"F02","data_hora":"2026-06-14 23:00","grupo":"F","mandante":"Suécia","visitante":"Tunísia"},
-    {"id":"F03","data_hora":"2026-06-20 14:00","grupo":"F","mandante":"Holanda","visitante":"Suécia"},
-    {"id":"F04","data_hora":"2026-06-21 01:00","grupo":"F","mandante":"Tunísia","visitante":"Japão"},
-    {"id":"F05","data_hora":"2026-06-25 20:00","grupo":"F","mandante":"Japão","visitante":"Suécia"},
-    {"id":"F06","data_hora":"2026-06-25 20:00","grupo":"F","mandante":"Tunísia","visitante":"Holanda"},
-
-    # GRUPO G
-    {"id":"G01","data_hora":"2026-06-15 16:00","grupo":"G","mandante":"Bélgica","visitante":"Egito"},
-    {"id":"G02","data_hora":"2026-06-15 22:00","grupo":"G","mandante":"Irã","visitante":"Nova Zelândia"},
-    {"id":"G03","data_hora":"2026-06-21 16:00","grupo":"G","mandante":"Bélgica","visitante":"Irã"},
-    {"id":"G04","data_hora":"2026-06-21 22:00","grupo":"G","mandante":"Nova Zelândia","visitante":"Egito"},
-    {"id":"G05","data_hora":"2026-06-27 00:00","grupo":"G","mandante":"Egito","visitante":"Irã"},
-    {"id":"G06","data_hora":"2026-06-27 00:00","grupo":"G","mandante":"Nova Zelândia","visitante":"Bélgica"},
-
-    # GRUPO H
-    {"id":"H01","data_hora":"2026-06-15 13:00","grupo":"H","mandante":"Espanha","visitante":"Cabo Verde"},
-    {"id":"H02","data_hora":"2026-06-15 19:00","grupo":"H","mandante":"Arábia Saudita","visitante":"Uruguai"},
-    {"id":"H03","data_hora":"2026-06-21 13:00","grupo":"H","mandante":"Espanha","visitante":"Arábia Saudita"},
-    {"id":"H04","data_hora":"2026-06-21 19:00","grupo":"H","mandante":"Uruguai","visitante":"Cabo Verde"},
-    {"id":"H05","data_hora":"2026-06-26 21:00","grupo":"H","mandante":"Cabo Verde","visitante":"Arábia Saudita"},
-    {"id":"H06","data_hora":"2026-06-26 21:00","grupo":"H","mandante":"Uruguai","visitante":"Espanha"},
-
-    # GRUPO I
-    {"id":"I01","data_hora":"2026-06-16 16:00","grupo":"I","mandante":"França","visitante":"Senegal"},
-    {"id":"I02","data_hora":"2026-06-16 19:00","grupo":"I","mandante":"Iraque","visitante":"Noruega"},
-    {"id":"I03","data_hora":"2026-06-22 16:00","grupo":"I","mandante":"França","visitante":"Iraque"},
-    {"id":"I04","data_hora":"2026-06-22 18:00","grupo":"I","mandante":"Noruega","visitante":"Senegal"},
-    {"id":"I05","data_hora":"2026-06-26 16:00","grupo":"I","mandante":"Noruega","visitante":"França"},
-    {"id":"I06","data_hora":"2026-06-26 16:00","grupo":"I","mandante":"Senegal","visitante":"Iraque"},
-
-    # GRUPO J
-    {"id":"J01","data_hora":"2026-06-16 22:00","grupo":"J","mandante":"Argentina","visitante":"Argélia"},
-    {"id":"J02","data_hora":"2026-06-17 01:00","grupo":"J","mandante":"Áustria","visitante":"Jordânia"},
-    {"id":"J03","data_hora":"2026-06-22 14:00","grupo":"J","mandante":"Argentina","visitante":"Áustria"},
-    {"id":"J04","data_hora":"2026-06-23 00:00","grupo":"J","mandante":"Jordânia","visitante":"Argélia"},
-    {"id":"J05","data_hora":"2026-06-27 23:00","grupo":"J","mandante":"Argélia","visitante":"Áustria"},
-    {"id":"J06","data_hora":"2026-06-27 23:00","grupo":"J","mandante":"Jordânia","visitante":"Argentina"},
-
-    # GRUPO K
-    {"id":"K01","data_hora":"2026-06-17 14:00","grupo":"K","mandante":"Portugal","visitante":"RD do Congo"},
-    {"id":"K02","data_hora":"2026-06-17 23:00","grupo":"K","mandante":"Uzbequistão","visitante":"Colômbia"},
-    {"id":"K03","data_hora":"2026-06-23 14:00","grupo":"K","mandante":"Portugal","visitante":"Uzbequistão"},
-    {"id":"K04","data_hora":"2026-06-23 23:00","grupo":"K","mandante":"Colômbia","visitante":"RD do Congo"},
-    {"id":"K05","data_hora":"2026-06-27 20:30","grupo":"K","mandante":"Colômbia","visitante":"Portugal"},
-    {"id":"K06","data_hora":"2026-06-27 20:30","grupo":"K","mandante":"RD do Congo","visitante":"Uzbequistão"},
-
-    # GRUPO L
-    {"id":"L01","data_hora":"2026-06-17 17:00","grupo":"L","mandante":"Inglaterra","visitante":"Croácia"},
-    {"id":"L02","data_hora":"2026-06-17 20:00","grupo":"L","mandante":"Gana","visitante":"Panamá"},
-    {"id":"L03","data_hora":"2026-06-23 17:00","grupo":"L","mandante":"Inglaterra","visitante":"Gana"},
-    {"id":"L04","data_hora":"2026-06-23 20:00","grupo":"L","mandante":"Panamá","visitante":"Croácia"},
-    {"id":"L05","data_hora":"2026-06-27 18:00","grupo":"L","mandante":"Panamá","visitante":"Inglaterra"},
-    {"id":"L06","data_hora":"2026-06-27 18:00","grupo":"L","mandante":"Croácia","visitante":"Gana"},
-]
-
-
-
-# ===================== BANDEIRAS =====================
-# Usa imagens de bandeiras via FlagCDN, no estilo “ícone antes do time”.
-# Códigos especiais: Inglaterra e Escócia usam subdivisões do Reino Unido.
-BANDEIRAS_TIMES = {
-    "México": "mx",
-    "África do Sul": "za",
-    "Coreia do Sul": "kr",
-    "República Tcheca": "cz",
-    "Canadá": "ca",
-    "Bósnia e Herzegovina": "ba",
-    "Catar": "qa",
-    "Suíça": "ch",
-    "Brasil": "br",
-    "Marrocos": "ma",
-    "Haiti": "ht",
-    "Escócia": "gb-sct",
-    "Estados Unidos": "us",
-    "Paraguai": "py",
-    "Austrália": "au",
-    "Turquia": "tr",
-    "Alemanha": "de",
-    "Curaçao": "cw",
-    "Costa do Marfim": "ci",
-    "Equador": "ec",
-    "Holanda": "nl",
-    "Japão": "jp",
-    "Suécia": "se",
-    "Tunísia": "tn",
-    "Bélgica": "be",
-    "Egito": "eg",
-    "Irã": "ir",
-    "Nova Zelândia": "nz",
-    "Espanha": "es",
-    "Cabo Verde": "cv",
-    "Arábia Saudita": "sa",
-    "Uruguai": "uy",
-    "França": "fr",
-    "Senegal": "sn",
-    "Iraque": "iq",
-    "Noruega": "no",
-    "Argentina": "ar",
-    "Argélia": "dz",
-    "Áustria": "at",
-    "Jordânia": "jo",
-    "Portugal": "pt",
-    "RD do Congo": "cd",
-    "Uzbequistão": "uz",
-    "Colômbia": "co",
-    "Inglaterra": "gb-eng",
-    "Croácia": "hr",
-    "Gana": "gh",
-    "Panamá": "pa",
+ANALISTAS = {
+    "Cleviton": [
+        "Portas e Janelas", "Ferramentas", "Ferragens", "Automotivos"
+    ],
+    "Alec": [
+        "Eletrica", "Iluminacao", "Hidraulica"
+    ],
+    "Jonatas": [
+        "Moveis e Colchoes", "Decoracao", "Cama Mesa e Banho", "Lazer",
+        "Casa e UD", "Jardim",
+    ],
+    "Beatriz": [
+        "Eletro", "Tecnologia", "Climatizacao"
+    ],
+    "Ruan": [
+        "Tintas", "Organizacao da Casa"
+    ],
+    "Jessica": [
+        "Materiais de Construcao", "Banho e Cozinha"
+    ],
+    "Rose": [
+        "Pisos e Revestimento"
+    ],
 }
 
+STATUS_PENDENTE = "PENDENTE"
+STATUS_COBRADO_1 = "COBRADO 1X"
+STATUS_COBRADO_2 = "COBRADO 2X"
+STATUS_ACIONAR_COMPRADOR = "ACIONAR COMPRADOR"
+STATUS_COMPRADOR_ACIONADO = "COMPRADOR ACIONADO"
+STATUS_FORA_ATRASO = "FORA DO ATRASO"
+STATUS_COM_AGENDAMENTO = "COM AGENDAMENTO"
+STATUS_CANCELADO = "CANCELADO / RETIRADO"
 
-def time_com_bandeira(nome_time):
-    """Retorna HTML com imagem da bandeira + nome do time."""
-    nome_seguro = html.escape(nome_time or "")
-    codigo = BANDEIRAS_TIMES.get(nome_time)
+COLUNAS_MOEDA = [
+    "saldo_cmv",
+    "pre_nota_cmv",
+    "nao_faturado_cmv",
+]
 
-    if not codigo:
-        return nome_seguro
+CAMPOS_PEDIDOS = [
+    "doc_id",
+    "pedido",
+    "analista",
+    "departamento",
+    "departamento_norm",
+    "fornecedor",
+    "dt_agendada",
+    "dt_agendada_ordem",
+    "saldo_cmv",
+    "pre_nota_cmv",
+    "nao_faturado_cmv",
+    "qtd_itens",
+    "ativo",
+    "status",
+    "cobrancas",
+    "comprador_acionado",
+    "ultima_cobranca",
+    "data_primeira_entrada",
+    "data_ultimo_upload",
+    "data_cancelamento",
+    "criado_em",
+    "atualizado_em",
+]
 
-    url = f"https://flagcdn.com/w40/{codigo}.png"
-    return (
-        "<span class='time-flag-wrap'>"
-        f"<img class='flag-img' src='{url}' alt='Bandeira {nome_seguro}' loading='lazy'>"
-        f"<span>{nome_seguro}</span>"
-        "</span>"
+CAMPOS_LISTAGEM = [
+    "doc_id",
+    "pedido",
+    "analista",
+    "departamento",
+    "fornecedor",
+    "dt_agendada",
+    "dt_agendada_ordem",
+    "qtd_itens",
+    "saldo_cmv",
+    "pre_nota_cmv",
+    "nao_faturado_cmv",
+    "status",
+    "cobrancas",
+    "ultima_cobranca",
+    "data_primeira_entrada",
+    "data_ultimo_upload",
+    "data_cancelamento",
+    "ativo",
+]
+
+# =========================
+# ESTILO
+# =========================
+st.markdown("""
+<style>
+    .main {background-color: #f7f8fb;}
+    .block-container {padding-top: 1.2rem;}
+
+    div[data-testid="stMetric"] {
+        background: white;
+        border: 1px solid #e8e8ef;
+        padding: 16px;
+        border-radius: 14px;
+        box-shadow: 0 2px 8px rgba(15,23,42,.04);
+    }
+
+    .card {
+        background: white;
+        border: 1px solid #e8e8ef;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(15,23,42,.04);
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        border: 1px solid #ddd;
+    }
+
+    .pendente {background:#f1f5f9;color:#334155;}
+    .ok1 {background:#dbeafe;color:#1d4ed8;}
+    .ok2 {background:#fef3c7;color:#92400e;}
+    .comprador {background:#fee2e2;color:#991b1b;}
+    .acionado {background:#ede9fe;color:#5b21b6;}
+    .fora {background:#e2e8f0;color:#475569;}
+    .agendado {background:#dbeafe;color:#1e40af;}
+    .cancelado {background:#f3f4f6;color:#374151;}
+</style>
+""", unsafe_allow_html=True)
+
+# =========================
+# FUNÇÕES BASE
+# =========================
+def hoje():
+    return datetime.now(TZ).date()
+
+
+def data_limite_cobranca():
+    return hoje() - timedelta(days=1)
+
+
+def agora_str():
+    return datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def data_br(data_obj):
+    if not data_obj:
+        return ""
+
+    try:
+        return data_obj.strftime("%d/%m/%Y")
+    except Exception:
+        return str(data_obj)
+
+
+def sem_acento(txt):
+    txt = "" if pd.isna(txt) else str(txt)
+    return normalize("NFKD", txt).encode("ASCII", "ignore").decode("ASCII")
+
+
+def norm(txt):
+    txt = sem_acento(txt).upper().strip()
+
+    for ch in ["-", "–", "—", "_", ".", "/", "\\", "(", ")", "$", "º", "ª"]:
+        txt = txt.replace(ch, " ")
+
+    txt = " ".join(txt.split())
+    return txt
+
+
+def hash_id(*partes):
+    texto = "|".join(norm(p) for p in partes if str(p).strip() != "")
+    return hashlib.sha1(texto.encode("utf-8")).hexdigest()[:24]
+
+
+def converter_data(valor):
+    if valor is None or pd.isna(valor):
+        return None
+
+    if isinstance(valor, datetime):
+        return valor.date()
+
+    if isinstance(valor, pd.Timestamp):
+        return valor.date()
+
+    if isinstance(valor, (int, float)):
+        try:
+            if 30000 <= float(valor) <= 60000:
+                dt = pd.to_datetime(valor, unit="D", origin="1899-12-30", errors="coerce")
+                if not pd.isna(dt):
+                    return dt.date()
+        except Exception:
+            pass
+
+    txt = str(valor).strip()
+
+    if not txt or txt.lower() in ["nan", "nat", "none", "-"]:
+        return None
+
+    dt = pd.to_datetime(txt, dayfirst=True, errors="coerce")
+
+    if pd.isna(dt):
+        return None
+
+    return dt.date()
+
+
+def converter_numero(valor):
+    if valor is None or pd.isna(valor):
+        return 0.0
+
+    if isinstance(valor, (int, float)):
+        return float(valor)
+
+    txt = str(valor).strip()
+
+    if not txt or txt.lower() in ["nan", "none", "-", ""]:
+        return 0.0
+
+    txt = txt.replace("R$", "").replace(" ", "")
+
+    if "," in txt and "." in txt:
+        txt = txt.replace(".", "").replace(",", ".")
+    elif "," in txt:
+        txt = txt.replace(",", ".")
+
+    try:
+        return float(txt)
+    except Exception:
+        return 0.0
+
+
+def formatar_moeda(valor):
+    try:
+        if valor is None or str(valor).strip() == "":
+            return "R$ 0,00"
+
+        if isinstance(valor, str) and valor.strip().startswith("R$"):
+            return valor
+
+        v = float(valor)
+        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        return str(valor or "R$ 0,00")
+
+
+def formatar_df_moeda(df):
+    if df is None or df.empty:
+        return df
+
+    df_formatado = df.copy()
+
+    for col in COLUNAS_MOEDA:
+        if col in df_formatado.columns:
+            df_formatado[col] = df_formatado[col].apply(formatar_moeda)
+
+    return df_formatado
+
+
+def status_por_cobranca(qtd, comprador_acionado=False):
+    qtd = int(qtd or 0)
+
+    if comprador_acionado:
+        return STATUS_COMPRADOR_ACIONADO
+
+    if qtd <= 0:
+        return STATUS_PENDENTE
+
+    if qtd == 1:
+        return STATUS_COBRADO_1
+
+    if qtd == 2:
+        return STATUS_COBRADO_2
+
+    return STATUS_ACIONAR_COMPRADOR
+
+
+def classe_status(status):
+    if status == STATUS_PENDENTE:
+        return "pendente"
+
+    if status == STATUS_COBRADO_1:
+        return "ok1"
+
+    if status == STATUS_COBRADO_2:
+        return "ok2"
+
+    if status == STATUS_ACIONAR_COMPRADOR:
+        return "comprador"
+
+    if status == STATUS_COMPRADOR_ACIONADO:
+        return "acionado"
+
+    if status == STATUS_FORA_ATRASO:
+        return "fora"
+
+    if status == STATUS_COM_AGENDAMENTO:
+        return "agendado"
+
+    if status == STATUS_CANCELADO:
+        return "cancelado"
+
+    return "pendente"
+
+
+def badge(status):
+    css = classe_status(status)
+    return f'<span class="badge {css}">{status}</span>'
+
+
+def identificar_analista(departamento):
+    dep_n = norm(departamento)
+
+    for analista, deps in ANALISTAS.items():
+        for dep in deps:
+            dep_ref = norm(dep)
+
+            if dep_n == dep_ref or dep_ref in dep_n or dep_n in dep_ref:
+                return analista
+
+    return "SEM ANALISTA"
+
+
+def primeiro_valor(series):
+    for v in series:
+        if v is None or pd.isna(v):
+            continue
+
+        txt = str(v).strip()
+
+        if txt and txt.lower() not in ["nan", "none", "-"]:
+            return txt
+
+    return ""
+
+
+def menor_data(series):
+    datas = []
+
+    for v in series:
+        if v is not None and not pd.isna(v):
+            datas.append(v)
+
+    if not datas:
+        return None
+
+    return min(datas)
+
+
+# =========================
+# NEON / POSTGRES
+# =========================
+@st.cache_resource
+def conectar_banco():
+    if "neon" not in st.secrets or "database_url" not in st.secrets["neon"]:
+        st.error("Neon não configurado. Coloque [neon] database_url nos Secrets do Streamlit.")
+        st.stop()
+
+    database_url = st.secrets["neon"]["database_url"]
+
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=300,
     )
 
-# ===================== ESTILO =====================
-def aplicar_estilo():
-    st.markdown("""
-    <style>
-    .main .block-container {
-        padding-top: 1.5rem;
-        max-width: 1500px;
-    }
 
-    h1, h2, h3 { letter-spacing: -0.4px; }
-
-    div[data-testid="stInfo"] { border-radius: 10px; }
-
-    .grupo-box {
-        margin-top: 26px;
-        margin-bottom: 8px;
-        padding: 10px 14px;
-        border-radius: 10px;
-        background: #173b66;
-        border-left: 6px solid #f97316;
-        color: white;
-        font-size: 24px;
-        font-weight: 800;
-    }
-
-    .cabecalho-jogo {
-        padding: 8px 10px;
-        margin-top: 8px;
-        margin-bottom: 4px;
-        border-radius: 8px;
-        background: #0f2747;
-        color: #dbeafe;
-        font-size: 13px;
-        font-weight: 800;
-        text-transform: uppercase;
-    }
-
-    .linha-jogo {
-        padding: 8px 10px;
-        margin-bottom: 4px;
-        border-radius: 10px;
-        background: #111827;
-        border: 1px solid #243244;
-    }
-
-    .texto-data {
-        color: #e5e7eb;
-        font-weight: 700;
-        font-size: 14px;
-        white-space: nowrap;
-    }
-
-    .texto-time {
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 15px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .time-flag-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-    }
-
-    .flag-img {
-        width: 30px;
-        height: 20px;
-        object-fit: cover;
-        border-radius: 2px;
-        border: 1px solid rgba(255,255,255,0.28);
-        box-shadow: 0 0 0 1px rgba(0,0,0,0.18);
-        flex: 0 0 auto;
-    }
-
-    .texto-x {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 55px;
-        color: #60a5fa;
-        font-weight: 900;
-        text-align: center;
-        font-size: 22px;
-        line-height: 1;
-    }
-
-    .status-aberto {
-        color: #22c55e;
-        font-weight: 800;
-        font-size: 14px;
-        white-space: nowrap;
-    }
-
-    .status-fechado {
-        color: #ef4444;
-        font-weight: 800;
-        font-size: 14px;
-        white-space: nowrap;
-    }
-
-    div[data-testid="stNumberInput"] {
-        max-width: 70px;
-        margin: auto;
-    }
-
-    div[data-testid="stNumberInput"] input {
-        text-align: center !important;
-        font-weight: 800;
-    }
-
-    .stButton > button {
-        border-radius: 10px;
-        font-weight: 800;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+engine = conectar_banco()
 
 
-# ===================== FIREBASE =====================
-@st.cache_resource
-def get_db():
+def inicializar_banco():
+    sql = """
+    create table if not exists carteira_pedidos (
+        doc_id text primary key,
+        pedido text,
+        analista text,
+        departamento text,
+        departamento_norm text,
+        fornecedor text,
+        dt_agendada text,
+        dt_agendada_ordem text,
+        saldo_cmv numeric default 0,
+        pre_nota_cmv numeric default 0,
+        nao_faturado_cmv numeric default 0,
+        qtd_itens integer default 0,
+        ativo boolean default true,
+        status text,
+        cobrancas integer default 0,
+        comprador_acionado boolean default false,
+        ultima_cobranca text,
+        data_primeira_entrada text,
+        data_ultimo_upload text,
+        data_cancelamento text,
+        criado_em text,
+        atualizado_em text
+    );
+
+    create table if not exists carteira_historico (
+        id bigserial primary key,
+        doc_id text references carteira_pedidos(doc_id) on delete cascade,
+        pedido text,
+        tipo text,
+        data text,
+        usuario text,
+        observacao text,
+        cobranca_numero integer,
+        status_apos text
+    );
+
+    create index if not exists idx_carteira_ativo_analista
+    on carteira_pedidos (ativo, analista);
+
+    create index if not exists idx_carteira_status
+    on carteira_pedidos (status);
+
+    create index if not exists idx_carteira_dt
+    on carteira_pedidos (dt_agendada_ordem);
+
+    create index if not exists idx_historico_doc
+    on carteira_historico (doc_id);
     """
-    Para funcionar no Streamlit Cloud, coloque o JSON da conta de serviço em:
-    Settings > Secrets, com o nome [firebase_service_account]
-    """
-    if not firebase_admin._apps:
-        if "firebase_service_account" not in st.secrets:
-            st.error("Configuração do Firebase não encontrada em st.secrets['firebase_service_account'].")
-            st.stop()
 
-        cred = credentials.Certificate(dict(st.secrets["firebase_service_account"]))
-        firebase_admin.initialize_app(cred)
-
-    # IMPORTANTE:
-    # O banco que você criou no Firebase está com ID "default".
-    # Se não informar isso, o SDK tenta abrir o banco antigo "(default)"
-    # e pode gerar erro NotFound.
     try:
-        return firestore.client(database_id="default")
-    except TypeError:
-        # Compatibilidade com versões antigas do firebase-admin.
-        # Se cair aqui, atualize o requirements.txt para firebase-admin>=6.5.0
-        return firestore.client()
+        with engine.begin() as conn:
+            conn.execute(text(sql))
+    except Exception as e:
+        st.error("Erro ao criar/verificar as tabelas no Neon.")
+        with st.expander("Ver detalhe técnico"):
+            st.code(repr(e))
+        st.stop()
 
 
-def now_iso():
-    return datetime.now(TZ).isoformat()
+inicializar_banco()
 
 
-def hash_password(password, salt=None):
-    salt = salt or secrets.token_hex(16)
-    senha_hash = hashlib.sha256((salt + password).encode()).hexdigest()
-    return salt, senha_hash
+def campos_sql(campos=None):
+    if not campos:
+        campos = CAMPOS_PEDIDOS.copy()
+    else:
+        campos = [c for c in campos if c in CAMPOS_PEDIDOS]
+
+    if "doc_id" not in campos:
+        campos = ["doc_id"] + campos
+
+    return campos
 
 
-def check_password(password, salt, senha_hash):
-    return hashlib.sha256((salt + password).encode()).hexdigest() == senha_hash
+def buscar_docs(ativos=None, analista=None, status=None, campos=None, tamanho_lote=100000):
+    campos = campos_sql(campos)
+    select_cols = ", ".join(campos)
+
+    sql = f"""
+        select {select_cols}
+        from carteira_pedidos
+        where 1 = 1
+    """
+
+    params = {}
+
+    if ativos is not None:
+        sql += " and ativo = :ativo"
+        params["ativo"] = bool(ativos)
+
+    if analista:
+        sql += " and analista = :analista"
+        params["analista"] = analista
+
+    if status:
+        sql += " and status = :status"
+        params["status"] = status
+
+    sql += """
+        order by analista, departamento, dt_agendada_ordem, pedido
+        limit :limite
+    """
+    params["limite"] = int(tamanho_lote)
+
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(text(sql), params).mappings().all()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        st.error("Não consegui consultar o Neon agora.")
+        with st.expander("Ver detalhe técnico"):
+            st.code(repr(e))
+        st.stop()
 
 
-def normalize_user(usuario):
-    return (usuario or "").strip().upper()
+def buscar_docs_por_ids(doc_ids, campos=None, tamanho_lote=500):
+    ids = list(dict.fromkeys(list(doc_ids)))
+
+    if not ids:
+        return []
+
+    campos = campos_sql(campos)
+    select_cols = ", ".join(campos)
+
+    resultado = []
+
+    sql = text(f"""
+        select {select_cols}
+        from carteira_pedidos
+        where doc_id in :ids
+    """).bindparams(bindparam("ids", expanding=True))
+
+    try:
+        with engine.begin() as conn:
+            for i in range(0, len(ids), tamanho_lote):
+                lote = ids[i:i + tamanho_lote]
+                rows = conn.execute(sql, {"ids": lote}).mappings().all()
+                resultado.extend([dict(r) for r in rows])
+
+        return resultado
+
+    except Exception as e:
+        st.error("Não consegui buscar os pedidos no Neon.")
+        with st.expander("Ver detalhe técnico"):
+            st.code(repr(e))
+        st.stop()
 
 
-def doc_to_dict(doc):
-    dados = doc.to_dict() or {}
-    dados["id"] = doc.id
-    return dados
+def buscar_doc(doc_id):
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("select * from carteira_pedidos where doc_id = :doc_id"),
+                {"doc_id": doc_id}
+            ).mappings().first()
+
+            return dict(row) if row else None
+
+    except Exception as e:
+        st.error("Erro ao buscar o pedido no Neon.")
+        with st.expander("Ver detalhe técnico"):
+            st.code(repr(e))
+        st.stop()
 
 
-def get_all_users():
-    db = get_db()
-    docs = db.collection("usuarios").stream()
-    return {doc.id: doc.to_dict() or {} for doc in docs}
+def historico_doc(doc_id):
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(
+                text("""
+                    select tipo, data, usuario, observacao, cobranca_numero, status_apos
+                    from carteira_historico
+                    where doc_id = :doc_id
+                    order by data desc, id desc
+                """),
+                {"doc_id": doc_id}
+            ).mappings().all()
+
+            return [dict(r) for r in rows]
+
+    except Exception as e:
+        st.error("Erro ao carregar histórico.")
+        with st.expander("Ver detalhe técnico"):
+            st.code(repr(e))
+        st.stop()
 
 
-def get_user(usuario):
-    db = get_db()
-    usuario = normalize_user(usuario)
-    snap = db.collection("usuarios").document(usuario).get()
-    if snap.exists:
-        return snap.to_dict() or {}
+def montar_linha_banco(dados):
+    linha = {}
+
+    for campo in CAMPOS_PEDIDOS:
+        linha[campo] = dados.get(campo)
+
+    linha["saldo_cmv"] = float(linha.get("saldo_cmv") or 0)
+    linha["pre_nota_cmv"] = float(linha.get("pre_nota_cmv") or 0)
+    linha["nao_faturado_cmv"] = float(linha.get("nao_faturado_cmv") or 0)
+    linha["qtd_itens"] = int(linha.get("qtd_itens") or 0)
+    linha["ativo"] = bool(linha.get("ativo"))
+    linha["cobrancas"] = int(linha.get("cobrancas") or 0)
+    linha["comprador_acionado"] = bool(linha.get("comprador_acionado"))
+
+    for campo in CAMPOS_PEDIDOS:
+        if linha[campo] is None:
+            if campo in ["saldo_cmv", "pre_nota_cmv", "nao_faturado_cmv"]:
+                linha[campo] = 0
+            elif campo in ["qtd_itens", "cobrancas"]:
+                linha[campo] = 0
+            elif campo in ["ativo", "comprador_acionado"]:
+                linha[campo] = False
+            else:
+                linha[campo] = ""
+
+    return linha
+
+
+UPSERT_PEDIDO_SQL = text("""
+    insert into carteira_pedidos (
+        doc_id, pedido, analista, departamento, departamento_norm, fornecedor,
+        dt_agendada, dt_agendada_ordem,
+        saldo_cmv, pre_nota_cmv, nao_faturado_cmv, qtd_itens,
+        ativo, status, cobrancas, comprador_acionado,
+        ultima_cobranca, data_primeira_entrada, data_ultimo_upload,
+        data_cancelamento, criado_em, atualizado_em
+    )
+    values (
+        :doc_id, :pedido, :analista, :departamento, :departamento_norm, :fornecedor,
+        :dt_agendada, :dt_agendada_ordem,
+        :saldo_cmv, :pre_nota_cmv, :nao_faturado_cmv, :qtd_itens,
+        :ativo, :status, :cobrancas, :comprador_acionado,
+        :ultima_cobranca, :data_primeira_entrada, :data_ultimo_upload,
+        :data_cancelamento, :criado_em, :atualizado_em
+    )
+    on conflict (doc_id) do update set
+        pedido = excluded.pedido,
+        analista = excluded.analista,
+        departamento = excluded.departamento,
+        departamento_norm = excluded.departamento_norm,
+        fornecedor = excluded.fornecedor,
+        dt_agendada = excluded.dt_agendada,
+        dt_agendada_ordem = excluded.dt_agendada_ordem,
+        saldo_cmv = excluded.saldo_cmv,
+        pre_nota_cmv = excluded.pre_nota_cmv,
+        nao_faturado_cmv = excluded.nao_faturado_cmv,
+        qtd_itens = excluded.qtd_itens,
+        ativo = excluded.ativo,
+        status = excluded.status,
+        cobrancas = excluded.cobrancas,
+        comprador_acionado = excluded.comprador_acionado,
+        ultima_cobranca = excluded.ultima_cobranca,
+        data_primeira_entrada = coalesce(carteira_pedidos.data_primeira_entrada, excluded.data_primeira_entrada),
+        data_ultimo_upload = excluded.data_ultimo_upload,
+        data_cancelamento = excluded.data_cancelamento,
+        criado_em = coalesce(carteira_pedidos.criado_em, excluded.criado_em),
+        atualizado_em = excluded.atualizado_em
+""")
+
+
+INSERT_HISTORICO_SQL = text("""
+    insert into carteira_historico (
+        doc_id, pedido, tipo, data, usuario, observacao, cobranca_numero, status_apos
+    )
+    values (
+        :doc_id, :pedido, :tipo, :data, :usuario, :observacao, :cobranca_numero, :status_apos
+    )
+""")
+
+
+UPDATE_INATIVO_SQL = text("""
+    update carteira_pedidos
+    set
+        ativo = false,
+        status = :status,
+        data_cancelamento = coalesce(:data_cancelamento, data_cancelamento),
+        atualizado_em = :atualizado_em
+    where doc_id = :doc_id
+""")
+
+
+# =========================
+# AÇÕES NO BANCO
+# =========================
+def registrar_cobranca(doc_id, usuario, observacao):
+    item = buscar_doc(doc_id)
+
+    if not item:
+        st.error("Pedido não encontrado.")
+        return
+
+    atual = int(item.get("cobrancas", 0) or 0)
+    nova_qtd = atual + 1
+    comprador_acionado = bool(item.get("comprador_acionado", False))
+    novo_status = status_por_cobranca(nova_qtd, comprador_acionado)
+    data_evento = agora_str()
+
+    evento = {
+        "doc_id": doc_id,
+        "pedido": item.get("pedido", ""),
+        "tipo": "COBRANCA",
+        "data": data_evento,
+        "usuario": usuario,
+        "observacao": observacao or "",
+        "cobranca_numero": nova_qtd,
+        "status_apos": novo_status,
+    }
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    update carteira_pedidos
+                    set
+                        cobrancas = :cobrancas,
+                        status = :status,
+                        ultima_cobranca = :ultima_cobranca,
+                        atualizado_em = :atualizado_em
+                    where doc_id = :doc_id
+                """),
+                {
+                    "doc_id": doc_id,
+                    "cobrancas": nova_qtd,
+                    "status": novo_status,
+                    "ultima_cobranca": data_evento,
+                    "atualizado_em": data_evento,
+                }
+            )
+
+            conn.execute(INSERT_HISTORICO_SQL, evento)
+
+    except Exception as e:
+        st.error("Erro ao registrar cobrança.")
+        with st.expander("Ver detalhe técnico"):
+            st.code(repr(e))
+        st.stop()
+
+
+def marcar_comprador_acionado(doc_id, usuario, observacao):
+    item = buscar_doc(doc_id)
+
+    if not item:
+        st.error("Pedido não encontrado.")
+        return
+
+    data_evento = agora_str()
+
+    evento = {
+        "doc_id": doc_id,
+        "pedido": item.get("pedido", ""),
+        "tipo": "COMPRADOR_ACIONADO",
+        "data": data_evento,
+        "usuario": usuario,
+        "observacao": observacao or "",
+        "cobranca_numero": None,
+        "status_apos": STATUS_COMPRADOR_ACIONADO,
+    }
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    update carteira_pedidos
+                    set
+                        comprador_acionado = true,
+                        status = :status,
+                        atualizado_em = :atualizado_em
+                    where doc_id = :doc_id
+                """),
+                {
+                    "doc_id": doc_id,
+                    "status": STATUS_COMPRADOR_ACIONADO,
+                    "atualizado_em": data_evento,
+                }
+            )
+
+            conn.execute(INSERT_HISTORICO_SQL, evento)
+
+    except Exception as e:
+        st.error("Erro ao marcar comprador acionado.")
+        with st.expander("Ver detalhe técnico"):
+            st.code(repr(e))
+        st.stop()
+
+
+# =========================
+# LEITURA DO ARQUIVO
+# =========================
+def ler_arquivo(origem):
+    nome = origem.name.lower()
+
+    if nome.endswith(".csv"):
+        conteudo = origem.getvalue()
+
+        try:
+            return pd.read_csv(io.BytesIO(conteudo), sep=None, engine="python")
+        except Exception:
+            return pd.read_csv(io.BytesIO(conteudo), sep=";")
+
+    return pd.read_excel(origem)
+
+
+def encontrar_coluna_fixa(df, nomes_possiveis):
+    mapa = {norm(c): c for c in df.columns}
+
+    for nome in nomes_possiveis:
+        nome_n = norm(nome)
+
+        if nome_n in mapa:
+            return mapa[nome_n]
+
+    for nome in nomes_possiveis:
+        nome_n = norm(nome)
+
+        for col_n, col_original in mapa.items():
+            if nome_n in col_n or col_n in nome_n:
+                return col_original
+
     return None
 
 
-def save_user(usuario, dados, merge=True):
-    db = get_db()
-    usuario = normalize_user(usuario)
-    db.collection("usuarios").document(usuario).set(dados, merge=merge)
+def mapear_colunas_fixas(df):
+    colunas = {
+        "pedido": encontrar_coluna_fixa(df, [
+            "Pedido", "N Pedido", "Nº Pedido", "Num Pedido",
+            "Número Pedido", "Numero Pedido", "OC", "Ordem"
+        ]),
+        "departamento": encontrar_coluna_fixa(df, [
+            "Departamento", "Depto", "Setor"
+        ]),
+        "fornecedor": encontrar_coluna_fixa(df, [
+            "Fornecedor", "Forneceor", "Razão Social", "Razao Social", "Vendor"
+        ]),
+        "data_prev_entrega": encontrar_coluna_fixa(df, [
+            "Data Prev Entrega", "Data Prev. Entrega", "Dt Prev Entrega",
+            "DT Prev Entrega", "Prev Entrega", "Previsão Entrega",
+            "Previsao Entrega", "Data Prevista Entrega", "Menor Data Prev Entrega"
+        ]),
+        "dt_agendamento": encontrar_coluna_fixa(df, [
+            "DT Agendamento", "Dt Agendamento", "Data Agendamento",
+            "Data Agendada", "DT Agendada", "Dt Agendada",
+            "DT Agendando", "Dt Agendando", "Data Agendando",
+            "Agendamento", "Agendada", "Agendando"
+        ]),
+        "saldo_cmv": encontrar_coluna_fixa(df, [
+            "Saldo R$ (CMV)", "Saldo R CMV", "Saldo CMV"
+        ]),
+        "pre_nota_cmv": encontrar_coluna_fixa(df, [
+            "Pré-nota R$ (CMV)", "Pre-nota R$ (CMV)",
+            "Pré Nota R$ (CMV)", "Pre Nota R$ (CMV)",
+            "Pré-Nota R$ (CMV)", "Pre-Nota R$ (CMV)",
+            "Pré-nota CMV", "Pre-nota CMV", "Pré Nota CMV",
+            "Pre Nota CMV", "Pré-Nota CMV", "Pre-Nota CMV", "Prenota CMV"
+        ]),
+        "nao_faturado_cmv": encontrar_coluna_fixa(df, [
+            "Não Faturado R$ (CMV)", "Nao Faturado R$ (CMV)",
+            "Não Faturado CMV", "Nao Faturado CMV",
+            "Não Fatuado CMV", "Nao Fatuado CMV",
+            "Nao Fat CMV", "Não Fat CMV"
+        ]),
+    }
+
+    faltando = [campo for campo, coluna in colunas.items() if coluna is None]
+
+    return colunas, faltando
 
 
-def delete_user(usuario):
-    db = get_db()
-    usuario = normalize_user(usuario)
-    db.collection("usuarios").document(usuario).delete()
+def agregar_por_pedido(df, colunas):
+    base = df.copy()
+
+    base["_pedido"] = base[colunas["pedido"]].astype(str).str.strip()
+    base["_departamento"] = base[colunas["departamento"]]
+    base["_fornecedor"] = base[colunas["fornecedor"]]
+
+    base["_data_prev_entrega"] = base[colunas["data_prev_entrega"]].apply(converter_data)
+    base["_dt_agendamento"] = base[colunas["dt_agendamento"]].apply(converter_data)
+
+    base["_saldo_cmv"] = base[colunas["saldo_cmv"]].apply(converter_numero)
+    base["_pre_nota_cmv"] = base[colunas["pre_nota_cmv"]].apply(converter_numero)
+    base["_nao_faturado_cmv"] = base[colunas["nao_faturado_cmv"]].apply(converter_numero)
+
+    base = base[
+        (base["_pedido"].notna()) &
+        (base["_pedido"].astype(str).str.strip() != "") &
+        (base["_pedido"].astype(str).str.lower() != "nan")
+    ].copy()
+
+    ids_arquivo_completo = set(
+        hash_id(p)
+        for p in base["_pedido"].astype(str).str.strip().unique()
+    )
+
+    total_itens_antes = len(base)
+
+    base_sem_agendamento = base[
+        base["_dt_agendamento"].isna()
+    ].copy()
+
+    retirados_agendamento = total_itens_antes - len(base_sem_agendamento)
+
+    ids_sem_agendamento = set(
+        hash_id(p)
+        for p in base_sem_agendamento["_pedido"].astype(str).str.strip().unique()
+    )
+
+    if base_sem_agendamento.empty:
+        agrupado = pd.DataFrame(columns=[
+            "_pedido", "departamento", "fornecedor", "menor_data_prev_entrega",
+            "saldo_cmv", "pre_nota_cmv", "nao_faturado_cmv", "qtd_itens"
+        ])
+
+        agrupado.attrs["retirados_agendamento"] = retirados_agendamento
+        agrupado.attrs["ids_arquivo_completo"] = ids_arquivo_completo
+        agrupado.attrs["ids_sem_agendamento"] = ids_sem_agendamento
+
+        return agrupado
+
+    agrupado = base_sem_agendamento.groupby(
+        "_pedido",
+        dropna=False
+    ).agg(
+        departamento=("_departamento", primeiro_valor),
+        fornecedor=("_fornecedor", primeiro_valor),
+        menor_data_prev_entrega=("_data_prev_entrega", menor_data),
+        saldo_cmv=("_saldo_cmv", "sum"),
+        pre_nota_cmv=("_pre_nota_cmv", "sum"),
+        nao_faturado_cmv=("_nao_faturado_cmv", "sum"),
+        qtd_itens=("_pedido", "size")
+    ).reset_index()
+
+    agrupado.attrs["retirados_agendamento"] = retirados_agendamento
+    agrupado.attrs["ids_arquivo_completo"] = ids_arquivo_completo
+    agrupado.attrs["ids_sem_agendamento"] = ids_sem_agendamento
+
+    return agrupado
 
 
-def create_user(usuario, senha=SENHA_PADRAO, master=False, trocar_senha=False):
-    usuario = normalize_user(usuario)
-    salt, senha_hash = hash_password(senha)
-    save_user(usuario, {
-        "salt": salt,
-        "senha_hash": senha_hash,
-        "master": bool(master),
-        "trocar_senha": bool(trocar_senha),
-        "ativo": True,
-        "criado_em": now_iso(),
-        "atualizado_em": now_iso(),
-    }, merge=False)
+def preparar_linhas(df):
+    colunas, faltando = mapear_colunas_fixas(df)
+
+    if faltando:
+        return [], [], [
+            "Colunas obrigatórias não encontradas: " + ", ".join(faltando)
+        ], colunas, pd.DataFrame()
+
+    agrupado = agregar_por_pedido(df, colunas)
+
+    linhas_todas = []
+    linhas_cobranca = []
+    avisos = []
+    limite = data_limite_cobranca()
+
+    for _, row in agrupado.iterrows():
+        pedido = str(row["_pedido"]).strip()
+        departamento = str(row["departamento"]).strip()
+        fornecedor = str(row["fornecedor"]).strip()
+        dt_prev = row["menor_data_prev_entrega"]
+
+        if not pedido or pedido.lower() == "nan":
+            continue
+
+        if not departamento or departamento.lower() == "nan":
+            avisos.append(f"Pedido {pedido} sem departamento.")
+            continue
+
+        analista = identificar_analista(departamento)
+        doc_id = hash_id(pedido)
+
+        item = {
+            "doc_id": doc_id,
+            "pedido": pedido,
+            "departamento": departamento,
+            "departamento_norm": norm(departamento),
+            "analista": analista,
+            "fornecedor": fornecedor,
+            "dt_agendada": data_br(dt_prev),
+            "dt_agendada_ordem": dt_prev.isoformat() if dt_prev else "",
+            "saldo_cmv": float(row["saldo_cmv"] or 0),
+            "pre_nota_cmv": float(row["pre_nota_cmv"] or 0),
+            "nao_faturado_cmv": float(row["nao_faturado_cmv"] or 0),
+            "qtd_itens": int(row["qtd_itens"] or 0),
+        }
+
+        linhas_todas.append(item)
+
+        if dt_prev is None or pd.isna(dt_prev):
+            avisos.append(
+                f"Pedido {pedido} sem Data Prev Entrega válida. Não entrou na cobrança."
+            )
+            continue
+
+        if dt_prev <= limite:
+            linhas_cobranca.append(item)
+
+    return linhas_todas, linhas_cobranca, avisos, colunas, agrupado
 
 
-def reset_password(usuario):
-    usuario = normalize_user(usuario)
-    salt, senha_hash = hash_password(SENHA_PADRAO)
-    save_user(usuario, {
-        "salt": salt,
-        "senha_hash": senha_hash,
-        "trocar_senha": True,
-        "atualizado_em": now_iso(),
-        "senha_redefinida_em": now_iso(),
-    }, merge=True)
+def processar_carteira(df, usuario):
+    linhas_todas, linhas_cobranca, avisos, colunas, agrupado = preparar_linhas(df)
 
+    if not linhas_todas and avisos:
+        return {
+            "erro": True,
+            "avisos": avisos,
+            "colunas": colunas,
+        }
 
-def ensure_initial_users():
-    """
-    Cria admin e participantes iniciais se ainda não existirem no Firebase.
+    ids_arquivo_completo = agrupado.attrs.get("ids_arquivo_completo", set())
+    ids_sem_agendamento = agrupado.attrs.get("ids_sem_agendamento", set())
 
-    Regra atual:
-    - Usuário novo entra com senha 123 e NÃO é obrigado a trocar no primeiro login.
-    - Só será obrigado a trocar se o admin usar o botão de redefinir senha.
+    ids_cobranca = {x["doc_id"] for x in linhas_cobranca}
 
-    Também corrige usuários que foram criados pela versão anterior do script
-    com trocar_senha=True no primeiro login. Se o campo senha_redefinida_em
-    não existir, entendemos que não foi uma redefinição feita pelo admin.
-    """
-    users = get_all_users()
+    existentes_lista = buscar_docs_por_ids(
+        ids_cobranca,
+        campos=[
+            "doc_id",
+            "ativo",
+            "status",
+            "cobrancas",
+            "comprador_acionado",
+            "analista",
+            "data_primeira_entrada",
+            "criado_em",
+            "ultima_cobranca",
+        ]
+    )
 
-    if ADMIN_USER not in users:
-        create_user(ADMIN_USER, SENHA_PADRAO, master=True, trocar_senha=False)
+    existentes = {x["doc_id"]: x for x in existentes_lista}
 
-    for usuario in USUARIOS_INICIAIS:
-        usuario = normalize_user(usuario)
-        if usuario not in users:
-            create_user(usuario, SENHA_PADRAO, master=False, trocar_senha=False)
+    ativos_anteriores = buscar_docs(
+        ativos=True,
+        campos=["doc_id", "pedido", "analista"],
+        tamanho_lote=100000
+    )
 
-    # Migração automática: desfaz a obrigação de trocar senha dos usuários
-    # criados pela versão antiga, sem atrapalhar uma redefinição feita pelo admin.
-    users = get_all_users()
-    for usuario, dados in users.items():
-        if dados.get("trocar_senha", False) and not dados.get("senha_redefinida_em"):
-            save_user(usuario, {
-                "trocar_senha": False,
-                "atualizado_em": now_iso(),
-                "migrado_troca_senha_primeiro_login": True,
-            }, merge=True)
+    data_proc = agora_str()
 
+    pedidos_para_salvar = []
+    historicos = []
+    inativos = []
 
-def get_palpites_usuario(usuario):
-    db = get_db()
-    usuario = normalize_user(usuario)
-    doc = db.collection("palpites").document(usuario).get()
-    return doc.to_dict() or {}
+    novos = 0
+    reativados = 0
+    mantidos = 0
 
+    for item in linhas_cobranca:
+        existente = existentes.get(item["doc_id"])
 
-def save_palpites_usuario(usuario, palpites_usuario):
-    db = get_db()
-    usuario = normalize_user(usuario)
-    db.collection("palpites").document(usuario).set(palpites_usuario)
+        if existente:
+            qtd = int(existente.get("cobrancas", 0) or 0)
+            comprador_acionado = bool(existente.get("comprador_acionado", False))
+            status = status_por_cobranca(qtd, comprador_acionado)
 
+            dados = {
+                **item,
+                "ativo": True,
+                "status": status,
+                "cobrancas": qtd,
+                "comprador_acionado": comprador_acionado,
+                "data_primeira_entrada": existente.get("data_primeira_entrada") or data_proc,
+                "data_ultimo_upload": data_proc,
+                "ultima_cobranca": existente.get("ultima_cobranca") or "",
+                "data_cancelamento": "",
+                "criado_em": existente.get("criado_em") or data_proc,
+                "atualizado_em": data_proc,
+            }
 
-def get_all_palpites():
-    db = get_db()
-    return {doc.id: doc.to_dict() or {} for doc in db.collection("palpites").stream()}
+            if existente.get("ativo") is True:
+                mantidos += 1
+            else:
+                reativados += 1
 
+                historicos.append({
+                    "doc_id": item["doc_id"],
+                    "pedido": item["pedido"],
+                    "tipo": "RETORNO_PARA_COBRANCA",
+                    "data": data_proc,
+                    "usuario": usuario,
+                    "observacao": "Pedido voltou para cobrança por estar em atraso e sem DT Agendamento.",
+                    "cobranca_numero": None,
+                    "status_apos": status,
+                })
 
-def delete_palpites_usuario(usuario):
-    db = get_db()
-    usuario = normalize_user(usuario)
-    db.collection("palpites").document(usuario).delete()
+            pedidos_para_salvar.append(montar_linha_banco(dados))
 
-
-def rename_palpites_usuario(usuario_antigo, novo_nome):
-    db = get_db()
-    usuario_antigo = normalize_user(usuario_antigo)
-    novo_nome = normalize_user(novo_nome)
-    dados = get_palpites_usuario(usuario_antigo)
-    if dados:
-        db.collection("palpites").document(novo_nome).set(dados)
-    db.collection("palpites").document(usuario_antigo).delete()
-
-
-def get_resultados():
-    db = get_db()
-    doc = db.collection("configuracoes").document("resultados_reais").get()
-    return doc.to_dict() or {}
-
-
-def save_resultados(resultados):
-    db = get_db()
-    db.collection("configuracoes").document("resultados_reais").set(resultados)
-
-
-# ===================== LOGIN =====================
-def tela_trocar_senha(usuario, user_data):
-    st.warning("Você precisa criar uma nova senha antes de continuar.")
-
-    nova = st.text_input("Nova senha", type="password", key="nova_senha_obrigatoria")
-    confirmar = st.text_input("Confirmar nova senha", type="password", key="confirma_senha_obrigatoria")
-
-    if st.button("Salvar nova senha", use_container_width=True):
-        if not nova or not confirmar:
-            st.error("Preencha a nova senha e a confirmação.")
-        elif nova != confirmar:
-            st.error("As senhas não conferem.")
-        elif len(nova) < 4:
-            st.error("A senha precisa ter pelo menos 4 caracteres.")
-        elif nova == SENHA_PADRAO:
-            st.error("Escolha uma senha diferente da senha padrão 123.")
         else:
-            salt, senha_hash = hash_password(nova)
-            save_user(usuario, {
-                "salt": salt,
-                "senha_hash": senha_hash,
-                "trocar_senha": False,
-                "atualizado_em": now_iso(),
-                "senha_alterada_em": now_iso(),
-            }, merge=True)
-            st.success("Senha alterada! Faça login novamente.")
-            st.session_state.clear()
-            st.rerun()
+            novos += 1
 
+            dados = {
+                **item,
+                "ativo": True,
+                "status": STATUS_PENDENTE,
+                "cobrancas": 0,
+                "comprador_acionado": False,
+                "data_primeira_entrada": data_proc,
+                "data_ultimo_upload": data_proc,
+                "ultima_cobranca": "",
+                "data_cancelamento": "",
+                "criado_em": data_proc,
+                "atualizado_em": data_proc,
+            }
+
+            pedidos_para_salvar.append(montar_linha_banco(dados))
+
+            historicos.append({
+                "doc_id": item["doc_id"],
+                "pedido": item["pedido"],
+                "tipo": "ENTRADA_CARTEIRA",
+                "data": data_proc,
+                "usuario": usuario,
+                "observacao": "Pedido entrou na carteira de cobrança por estar em atraso e sem DT Agendamento.",
+                "cobranca_numero": None,
+                "status_apos": STATUS_PENDENTE,
+            })
+
+    cancelados = 0
+    fora_atraso = 0
+    com_agendamento = 0
+
+    for item in ativos_anteriores:
+        doc_id = item["doc_id"]
+
+        if doc_id in ids_cobranca:
+            continue
+
+        if doc_id not in ids_arquivo_completo:
+            cancelados += 1
+            status = STATUS_CANCELADO
+            obs = "Pedido saiu do arquivo completo. Retirado da cobrança e da contagem."
+            tipo = "CANCELADO_RETIRADO"
+            data_cancelamento = data_proc
+
+        elif doc_id not in ids_sem_agendamento:
+            com_agendamento += 1
+            status = STATUS_COM_AGENDAMENTO
+            obs = "Pedido está no arquivo, mas possui DT Agendamento preenchida. Retirado da cobrança."
+            tipo = "COM_AGENDAMENTO"
+            data_cancelamento = None
+
+        else:
+            fora_atraso += 1
+            status = STATUS_FORA_ATRASO
+            obs = "Pedido está sem DT Agendamento, mas não está em atraso pela menor Data Prev Entrega. Retirado da cobrança."
+            tipo = "FORA_DO_ATRASO"
+            data_cancelamento = None
+
+        inativos.append({
+            "doc_id": doc_id,
+            "status": status,
+            "data_cancelamento": data_cancelamento,
+            "atualizado_em": data_proc,
+        })
+
+        historicos.append({
+            "doc_id": doc_id,
+            "pedido": item.get("pedido", ""),
+            "tipo": tipo,
+            "data": data_proc,
+            "usuario": usuario,
+            "observacao": obs,
+            "cobranca_numero": None,
+            "status_apos": status,
+        })
+
+    try:
+        with engine.begin() as conn:
+            if pedidos_para_salvar:
+                conn.execute(UPSERT_PEDIDO_SQL, pedidos_para_salvar)
+
+            if inativos:
+                conn.execute(UPDATE_INATIVO_SQL, inativos)
+
+            if historicos:
+                conn.execute(INSERT_HISTORICO_SQL, historicos)
+
+    except Exception as e:
+        st.error("Erro ao processar carteira no Neon.")
+        with st.expander("Ver detalhe técnico"):
+            st.code(repr(e))
+        st.stop()
+
+    return {
+        "erro": False,
+        "total_arquivo": len(ids_arquivo_completo),
+        "sem_agendamento": len(ids_sem_agendamento),
+        "em_atraso": len(linhas_cobranca),
+        "retirados_por_data": len(linhas_todas) - len(linhas_cobranca),
+        "retirados_agendamento": agrupado.attrs.get("retirados_agendamento", 0),
+        "novos": novos,
+        "mantidos": mantidos,
+        "reativados": reativados,
+        "cancelados": cancelados,
+        "fora_atraso": fora_atraso,
+        "com_agendamento": com_agendamento,
+        "avisos": avisos,
+        "colunas": colunas,
+        "agrupado": agrupado,
+    }
+
+
+# =========================
+# LOGIN
+# =========================
+def senha_valida(usuario, senha):
+    if "app_passwords" in st.secrets:
+        senhas = dict(st.secrets["app_passwords"])
+        key = "admin" if usuario == "Admin" else usuario.lower()
+        return senha == senhas.get(key, "")
+
+    return senha == "1234"
+
+
+def tela_login():
+    st.title("📋 Cobrança de Carteira")
+    st.caption("Acompanhamento de pedidos atrasados por analista, departamento e cobrança.")
+
+    with st.form("login"):
+        usuario = st.selectbox("Usuário", ["Admin"] + list(ANALISTAS.keys()))
+        senha = st.text_input("Senha", type="password")
+        entrar = st.form_submit_button("Entrar", use_container_width=True)
+
+    if entrar:
+        if senha_valida(usuario, senha):
+            st.session_state["logado"] = True
+            st.session_state["usuario"] = usuario
+            st.rerun()
+        else:
+            st.error("Senha incorreta.")
+
+
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
+
+if not st.session_state["logado"]:
+    tela_login()
     st.stop()
 
+usuario_logado = st.session_state["usuario"]
 
-def login_screen():
-    aplicar_estilo()
-    ensure_initial_users()
+# =========================
+# SIDEBAR
+# =========================
+st.sidebar.title("📋 Carteira")
+st.sidebar.write(f"Usuário: **{usuario_logado}**")
 
-    st.title("🏆 Bolão Copa do Mundo 2026")
+if st.sidebar.button("Sair"):
+    st.session_state.clear()
+    st.rerun()
 
-    tab_login, tab_criar = st.tabs(["Entrar", "Criar usuário"])
+st.sidebar.divider()
+st.sidebar.caption("Regra de cobrança")
+st.sidebar.write(f"Hoje: **{data_br(hoje())}**")
+st.sidebar.write(f"Cobrar até: **{data_br(data_limite_cobranca())}**")
+st.sidebar.write("Primeiro retira quem tem DT Agendamento.")
+st.sidebar.write("Depois cobra atraso pela menor Data Prev Entrega.")
 
-    with tab_login:
-        with st.form("form_login"):
-            usuario = normalize_user(st.text_input("Usuário", key="login_user"))
-            senha = st.text_input("Senha", type="password", key="login_pass")
-            entrar = st.form_submit_button("Entrar", use_container_width=True)
+# =========================
+# TELAS
+# =========================
+def montar_df_itens(itens):
+    if not itens:
+        return pd.DataFrame()
 
-        if entrar:
-            user_data = get_user(usuario)
+    df = pd.DataFrame(itens)
 
-            if not usuario or not senha:
-                st.warning("Informe usuário e senha.")
-            elif not user_data:
-                st.error("Usuário ou senha inválidos.")
-            elif not user_data.get("ativo", True):
-                st.error("Usuário inativo. Fale com o admin.")
-            elif check_password(senha, user_data.get("salt", ""), user_data.get("senha_hash", "")):
-                st.session_state["usuario"] = usuario
-                st.session_state["master"] = bool(user_data.get("master", False))
-                st.rerun()
-            else:
-                st.error("Usuário ou senha inválidos.")
+    ordenar = [
+        c for c in ["analista", "departamento", "dt_agendada_ordem", "status", "pedido"]
+        if c in df.columns
+    ]
 
-    with tab_criar:
-        novo_usuario = normalize_user(st.text_input("Novo usuário", key="criar_user"))
-        nova_senha = st.text_input("Senha", type="password", key="criar_senha")
-        confirmar_senha = st.text_input("Confirmar senha", type="password", key="criar_confirma_senha")
+    if ordenar:
+        df = df.sort_values(ordenar, na_position="last")
 
-        if st.button("Criar usuário", use_container_width=True, key="btn_criar_usuario"):
-            users = get_all_users()
-            admin_name = ADMIN_USER.upper()
+    cols = [
+        "pedido", "analista", "departamento", "fornecedor",
+        "dt_agendada", "qtd_itens",
+        "saldo_cmv", "pre_nota_cmv", "nao_faturado_cmv",
+        "status", "cobrancas", "ultima_cobranca",
+        "data_primeira_entrada", "data_ultimo_upload", "data_cancelamento", "doc_id"
+    ]
 
-            if not novo_usuario or not nova_senha or not confirmar_senha:
-                st.warning("Preencha usuário, senha e confirmação.")
-            elif novo_usuario == admin_name:
-                st.error("Esse nome é reservado para o admin.")
-            elif novo_usuario in users:
-                st.error("Esse usuário já existe.")
-            elif nova_senha != confirmar_senha:
-                st.error("As senhas não conferem.")
-            elif len(nova_senha) < 3:
-                st.error("A senha precisa ter pelo menos 3 caracteres.")
-            else:
-                create_user(novo_usuario, nova_senha, master=False, trocar_senha=False)
-                st.success("Usuário criado! Agora faça login na aba Entrar.")
+    cols = [c for c in cols if c in df.columns]
+
+    return df[cols]
 
 
-# ===================== REGRAS =====================
-def resultado_tipo(gols_casa, gols_fora):
-    if gols_casa > gols_fora:
-        return "W"
-    if gols_casa < gols_fora:
-        return "L"
-    return "D"
+def aplicar_filtros(df, pode_filtrar_analista=True, key_prefix=""):
+    if df.empty:
+        return df
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        if pode_filtrar_analista and "analista" in df.columns:
+            analistas = ["TODOS"] + sorted(df["analista"].dropna().unique().tolist())
+            f_analista = st.selectbox(
+                "Analista",
+                analistas,
+                key=f"{key_prefix}_analista"
+            )
+
+            if f_analista != "TODOS":
+                df = df[df["analista"] == f_analista]
+
+    with c2:
+        if "departamento" in df.columns:
+            deps = ["TODOS"] + sorted(df["departamento"].dropna().unique().tolist())
+            f_dep = st.selectbox(
+                "Departamento",
+                deps,
+                key=f"{key_prefix}_departamento"
+            )
+
+            if f_dep != "TODOS":
+                df = df[df["departamento"] == f_dep]
+
+    with c3:
+        if "status" in df.columns:
+            sts = ["TODOS"] + sorted(df["status"].dropna().unique().tolist())
+            f_status = st.selectbox(
+                "Status",
+                sts,
+                key=f"{key_prefix}_status"
+            )
+
+            if f_status != "TODOS":
+                df = df[df["status"] == f_status]
+
+    busca = st.text_input(
+        "Pesquisar pedido, fornecedor ou departamento",
+        key=f"{key_prefix}_busca"
+    )
+
+    if busca:
+        busca_n = norm(busca)
+        mask = df.apply(
+            lambda linha: busca_n in norm(" ".join(str(v) for v in linha.values)),
+            axis=1
+        )
+        df = df[mask]
+
+    return df
 
 
-def valor_em_branco(valor):
-    return valor is None or valor == "" or valor == "-"
+def metricas(df):
+    if df.empty:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Ativos em atraso", 0)
+        c2.metric("Saldo CMV", "R$ 0,00")
+        c3.metric("Cobrado 2x", 0)
+        c4.metric("Acionar comprador", 0)
+        return
+
+    total = df["saldo_cmv"].sum() if "saldo_cmv" in df.columns else 0
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Ativos em atraso", len(df))
+    c2.metric("Saldo CMV", formatar_moeda(total))
+    c3.metric("Cobrado 2x", int((df["status"] == STATUS_COBRADO_2).sum()))
+    c4.metric("Acionar comprador", int((df["status"] == STATUS_ACIONAR_COMPRADOR).sum()))
 
 
-def palpite_valido(palpite):
-    """
-    Regra importante:
-    - Palpite novo só vale se tiver preenchido=True.
-    - Palpite antigo 0x0 sem preenchido=True é considerado em branco,
-      porque nas versões antigas o sistema salvava 0x0 automaticamente.
-    - Palpite antigo diferente de 0x0 continua valendo.
-    """
-    if not isinstance(palpite, dict):
-        return False
+def configurar_colunas_e_processar(df, origem_texto):
+    df.columns = [str(c).strip() for c in df.columns]
 
-    if "casa" not in palpite or "fora" not in palpite:
-        return False
+    st.info(
+        f"Regra aplicada: primeiro retira produtos com **DT Agendamento preenchida**. "
+        f"Depois considera somente pedidos sem agendamento com menor Data Prev Entrega até "
+        f"**{data_br(data_limite_cobranca())}**."
+    )
 
-    casa = palpite.get("casa")
-    fora = palpite.get("fora")
+    st.subheader("Prévia do arquivo")
+    st.caption(origem_texto)
+    st.dataframe(df.head(30), use_container_width=True)
 
-    if valor_em_branco(casa) or valor_em_branco(fora):
-        return False
+    linhas_todas, linhas_cobranca, avisos, colunas, agrupado = preparar_linhas(df)
 
-    try:
-        casa_int = int(casa)
-        fora_int = int(fora)
-    except Exception:
-        return False
+    st.subheader("Colunas identificadas automaticamente")
 
-    if palpite.get("preenchido") is True:
-        return True
+    colunas_df = pd.DataFrame([
+        {"Campo usado": "Pedido", "Coluna encontrada": colunas.get("pedido")},
+        {"Campo usado": "Departamento", "Coluna encontrada": colunas.get("departamento")},
+        {"Campo usado": "Fornecedor", "Coluna encontrada": colunas.get("fornecedor")},
+        {"Campo usado": "Data Prev Entrega", "Coluna encontrada": colunas.get("data_prev_entrega")},
+        {"Campo usado": "DT Agendamento", "Coluna encontrada": colunas.get("dt_agendamento")},
+        {"Campo usado": "Saldo CMV", "Coluna encontrada": colunas.get("saldo_cmv")},
+        {"Campo usado": "Pré-nota CMV", "Coluna encontrada": colunas.get("pre_nota_cmv")},
+        {"Campo usado": "Não Faturado CMV", "Coluna encontrada": colunas.get("nao_faturado_cmv")},
+    ])
 
-    # Compatibilidade com dados antigos:
-    # 0x0 sem a marcação preenchido=True não conta como palpite.
-    if casa_int == 0 and fora_int == 0:
-        return False
+    st.dataframe(colunas_df, use_container_width=True, hide_index=True)
 
-    return True
+    faltando = [k for k, v in colunas.items() if v is None]
+
+    if faltando:
+        st.error("Não consegui encontrar todas as colunas obrigatórias.")
+        st.write("Campos faltando:")
+        st.write(faltando)
+        st.stop()
+
+    preview_cobranca = pd.DataFrame(linhas_cobranca)
+
+    st.subheader("Resumo antes de processar")
+
+    total_saldo = sum(x["saldo_cmv"] for x in linhas_cobranca)
+    total_pre_nota = sum(x["pre_nota_cmv"] for x in linhas_cobranca)
+    total_nao_faturado = sum(x["nao_faturado_cmv"] for x in linhas_cobranca)
+
+    retirados_agendamento = agrupado.attrs.get("retirados_agendamento", 0)
+    ids_arquivo_completo = agrupado.attrs.get("ids_arquivo_completo", set())
+    ids_sem_agendamento = agrupado.attrs.get("ids_sem_agendamento", set())
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Pedidos no arquivo", len(ids_arquivo_completo))
+    c2.metric("Pedidos sem agendamento", len(ids_sem_agendamento))
+    c3.metric("Entram na cobrança", len(linhas_cobranca))
+
+    c4, c5, c6 = st.columns(3)
+    c4.metric("Itens retirados por DT Agendamento", retirados_agendamento)
+    c5.metric("Fora por data", len(linhas_todas) - len(linhas_cobranca))
+    c6.metric("Saldo CMV", formatar_moeda(total_saldo))
+
+    c7, c8 = st.columns(2)
+    c7.metric("Pré-nota CMV", formatar_moeda(total_pre_nota))
+    c8.metric("Não Faturado CMV", formatar_moeda(total_nao_faturado))
+
+    if not preview_cobranca.empty:
+        st.subheader("Separação dos atrasados por analista")
+
+        resumo = preview_cobranca.groupby(
+            ["analista", "departamento"],
+            dropna=False
+        ).agg(
+            pedidos=("pedido", "count"),
+            saldo_cmv=("saldo_cmv", "sum"),
+            pre_nota_cmv=("pre_nota_cmv", "sum"),
+            nao_faturado_cmv=("nao_faturado_cmv", "sum")
+        ).reset_index()
+
+        st.dataframe(formatar_df_moeda(resumo), use_container_width=True, hide_index=True)
+
+        sem_analista = preview_cobranca[preview_cobranca["analista"] == "SEM ANALISTA"]
+
+        if not sem_analista.empty:
+            st.warning("Existem departamentos em atraso sem analista. Confira a escrita do departamento.")
+            st.dataframe(
+                formatar_df_moeda(
+                    sem_analista[[
+                        "pedido", "departamento", "dt_agendada", "fornecedor",
+                        "saldo_cmv", "pre_nota_cmv", "nao_faturado_cmv"
+                    ]].head(50)
+                ),
+                use_container_width=True,
+                hide_index=True
+            )
+
+    with st.expander("Ver pedidos que entrarão na cobrança"):
+        if preview_cobranca.empty:
+            st.write("Nenhum pedido entra na cobrança pelo critério de data.")
+        else:
+            st.dataframe(
+                formatar_df_moeda(preview_cobranca.head(300)),
+                use_container_width=True,
+                hide_index=True
+            )
+
+    if avisos:
+        with st.expander("Avisos encontrados"):
+            for a in avisos[:200]:
+                st.write(a)
+
+    confirmar = st.checkbox("Confirmo que esta é a carteira atualizada")
+
+    if st.button(
+        "Processar carteira",
+        type="primary",
+        use_container_width=True,
+        disabled=not confirmar
+    ):
+        resultado = processar_carteira(df, usuario_logado)
+
+        if resultado.get("erro"):
+            st.error("Não foi possível processar a carteira.")
+            for a in resultado.get("avisos", []):
+                st.write(a)
+            st.stop()
+
+        st.success("Carteira processada com sucesso no Neon!")
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Pedidos no arquivo", resultado["total_arquivo"])
+        c2.metric("Pedidos sem agendamento", resultado["sem_agendamento"])
+        c3.metric("Entraram na cobrança", resultado["em_atraso"])
+
+        c4, c5, c6 = st.columns(3)
+        c4.metric("Itens retirados por DT Agendamento", resultado["retirados_agendamento"])
+        c5.metric("Fora por data", resultado["retirados_por_data"])
+        c6.metric("Retirados da conta", resultado["cancelados"])
+
+        c7, c8, c9 = st.columns(3)
+        c7.metric("Com agendamento", resultado["com_agendamento"])
+        c8.metric("Fora do atraso", resultado["fora_atraso"])
+        c9.metric("Novos", resultado["novos"])
+
+        c10, c11 = st.columns(2)
+        c10.metric("Mantidos", resultado["mantidos"])
+        c11.metric("Reativados", resultado["reativados"])
 
 
-def valor_palpite_para_tela(palpite, campo):
-    if not isinstance(palpite, dict):
-        return "-"
+def tela_upload():
+    st.header("📤 Atualizar carteira")
 
-    if not palpite_valido(palpite):
-        return "-"
+    st.warning(
+        "A cobrança será montada somente com produtos/pedidos sem DT Agendamento. "
+        "Depois disso, o sistema cobra o que estiver com Data Prev Entrega até ontem. "
+        "Pedido que sumir do arquivo será retirado da conta, não será marcado como entregue."
+    )
 
-    valor = palpite.get(campo)
-    if valor_em_branco(valor):
-        return "-"
+    arquivo = st.file_uploader("Arquivo da carteira", type=["xlsx", "xls", "csv"])
 
-    try:
-        return int(valor)
-    except Exception:
-        return "-"
+    if not arquivo:
+        st.info("Envie o arquivo da carteira para atualizar a base.")
+        return
+
+    df = ler_arquivo(arquivo)
+    configurar_colunas_e_processar(df, f"Origem: upload manual - {arquivo.name}")
 
 
-def seletor_gols(label, atual, campo, disabled, key):
-    opcoes = ["-"] + list(range(0, 31))
-    valor = valor_palpite_para_tela(atual, campo)
-    indice = opcoes.index(valor) if valor in opcoes else 0
+def tela_carteira(analista=None):
+    titulo = "📌 Minha carteira em atraso" if analista else "📌 Carteira geral em atraso"
+    st.header(titulo)
 
-    return st.selectbox(
-        label,
-        opcoes,
-        index=indice,
-        disabled=disabled,
-        key=key,
-        label_visibility="collapsed",
-        format_func=lambda x: "-" if x == "-" else str(x),
+    st.info(f"Data limite da cobrança hoje: **{data_br(data_limite_cobranca())}**")
+    st.caption("Aparecem aqui somente pedidos sem DT Agendamento e com Data Prev Entrega em atraso.")
+
+    itens = buscar_docs(
+        ativos=True,
+        analista=analista,
+        campos=CAMPOS_LISTAGEM,
+        tamanho_lote=100000
+    )
+
+    df = montar_df_itens(itens)
+
+    metricas(df)
+
+    if df.empty:
+        st.info("Nenhum pedido ativo em atraso encontrado para este usuário.")
+        return
+
+    df_filtrado = aplicar_filtros(
+        df,
+        pode_filtrar_analista=(analista is None),
+        key_prefix="carteira_geral" if analista is None else f"carteira_{analista}"
+    )
+
+    st.subheader("Pedidos em atraso para cobrar")
+
+    df_tela = df_filtrado.drop(columns=["doc_id"], errors="ignore")
+
+    st.dataframe(
+        formatar_df_moeda(df_tela),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    df_csv = df_filtrado.drop(columns=["doc_id"], errors="ignore")
+    df_csv = formatar_df_moeda(df_csv)
+
+    csv = df_csv.to_csv(index=False, sep=";").encode("utf-8-sig")
+
+    st.download_button(
+        "Baixar carteira filtrada em CSV",
+        data=csv,
+        file_name="carteira_cobranca_atraso.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+
+    st.subheader("Ações de cobrança")
+
+    for _, linha in df_filtrado.iterrows():
+        doc_id = linha["doc_id"]
+        status = linha.get("status", STATUS_PENDENTE)
+        cobrancas = int(linha.get("cobrancas", 0) or 0)
+
+        with st.expander(
+            f"Pedido {linha.get('pedido', '-')} | "
+            f"Menor data {linha.get('dt_agendada', '-')} | "
+            f"{linha.get('departamento', '-')} | "
+            f"{linha.get('fornecedor', '-')}"
+        ):
+            st.markdown(
+                f"""
+                <div class="card">
+                    <b>Status:</b> {badge(status)}<br>
+                    <b>Analista:</b> {linha.get('analista', '-')}<br>
+                    <b>Departamento:</b> {linha.get('departamento', '-')}<br>
+                    <b>Menor Data Prev Entrega:</b> {linha.get('dt_agendada', '-') or '-'}<br>
+                    <b>Fornecedor:</b> {linha.get('fornecedor', '-') or '-'}<br>
+                    <b>Qtd. itens do pedido sem agendamento:</b> {linha.get('qtd_itens', 0)}<br>
+                    <b>Saldo CMV:</b> {formatar_moeda(linha.get('saldo_cmv', 0))}<br>
+                    <b>Pré-nota CMV:</b> {formatar_moeda(linha.get('pre_nota_cmv', 0))}<br>
+                    <b>Não Faturado CMV:</b> {formatar_moeda(linha.get('nao_faturado_cmv', 0))}<br>
+                    <b>Cobranças:</b> {cobrancas}<br>
+                    <b>Última cobrança:</b> {linha.get('ultima_cobranca', '') or '-'}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            obs = st.text_area(
+                "Observação da cobrança",
+                key=f"obs_{doc_id}",
+                placeholder="Ex.: cobrado fornecedor por e-mail/WhatsApp, retorno previsto..."
+            )
+
+            col_a, col_b = st.columns(2)
+
+            if cobrancas == 2 and status != STATUS_COMPRADOR_ACIONADO:
+                st.warning("A próxima cobrança será a 3ª. Pela regra, o comprador deve ser acionado.")
+
+            with col_a:
+                if st.button(
+                    "Registrar cobrança",
+                    key=f"cobrar_{doc_id}",
+                    use_container_width=True
+                ):
+                    registrar_cobranca(doc_id, usuario_logado, obs)
+                    st.success("Cobrança registrada.")
+                    st.rerun()
+
+            with col_b:
+                desabilitar = (
+                    status not in [STATUS_ACIONAR_COMPRADOR, STATUS_COMPRADOR_ACIONADO]
+                    and cobrancas < 3
+                )
+
+                if st.button(
+                    "Marcar comprador acionado",
+                    key=f"comprador_{doc_id}",
+                    use_container_width=True,
+                    disabled=desabilitar
+                ):
+                    marcar_comprador_acionado(doc_id, usuario_logado, obs)
+                    st.success("Comprador acionado registrado.")
+                    st.rerun()
+
+            if st.button("Carregar histórico", key=f"historico_{doc_id}"):
+                historico = historico_doc(doc_id)
+
+                if historico:
+                    hist_df = pd.DataFrame(historico)
+                    st.caption("Histórico")
+                    st.dataframe(hist_df, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Sem histórico para este pedido.")
+
+
+def tela_fora_atraso():
+    st.header("📅 Fora do atraso")
+
+    itens = buscar_docs(
+        ativos=False,
+        status=STATUS_FORA_ATRASO,
+        campos=CAMPOS_LISTAGEM,
+        tamanho_lote=100000
+    )
+
+    df = montar_df_itens(itens)
+
+    if df.empty:
+        st.info("Nenhum pedido fora do atraso.")
+        return
+
+    df_filtrado = aplicar_filtros(df, pode_filtrar_analista=True, key_prefix="fora_atraso")
+
+    st.metric("Fora do atraso", len(df_filtrado))
+
+    st.dataframe(
+        formatar_df_moeda(df_filtrado.drop(columns=["doc_id"], errors="ignore")),
+        use_container_width=True,
+        hide_index=True
     )
 
 
-def aplicar_palpite_temp(palpites_temp, jogo_id, casa, fora, extras=None):
-    if casa == "-" or fora == "-":
-        palpites_temp.pop(jogo_id, None)
+def tela_cancelados():
+    st.header("🚫 Retirados da conta")
+
+    itens = buscar_docs(
+        ativos=False,
+        status=STATUS_CANCELADO,
+        campos=CAMPOS_LISTAGEM,
+        tamanho_lote=100000
+    )
+
+    df = montar_df_itens(itens)
+
+    if df.empty:
+        st.info("Nenhum pedido retirado da conta.")
         return
 
-    dados = {
-        "casa": int(casa),
-        "fora": int(fora),
-        "preenchido": True,
-        "salvo_em": now_iso(),
-    }
-
-    if extras:
-        dados.update(extras)
-
-    palpites_temp[jogo_id] = dados
-
-
-def calcula_pontos(palpite, real):
-    if not palpite_valido(palpite) or real is None:
-        return 0, "Pendente"
-
-    pc, pf = int(palpite["casa"]), int(palpite["fora"])
-    rc, rf = int(real["casa"]), int(real["fora"])
-
-    if pc == rc and pf == rf:
-        return 3, "Placar exato"
-
-    if resultado_tipo(pc, pf) == resultado_tipo(rc, rf):
-        return 1, "Resultado certo"
-
-    return 0, "Errou"
-
-
-def jogo_bloqueado(data_hora_str):
-    inicio = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M").replace(tzinfo=TZ)
-    return datetime.now(TZ) >= inicio - timedelta(hours=LOCK_HOURS_BEFORE)
-
-
-
-# ===================== GERENCIAR USUÁRIOS =====================
-def gerenciar_usuarios():
-    st.subheader("👥 Gerenciar usuários")
-    st.info("Área exclusiva do admin para alterar nomes, excluir participantes ou redefinir senha para 123.")
-
-    users = get_all_users()
-    admin_name = ADMIN_USER.upper()
-    lista_usuarios = sorted([u for u in users.keys() if u != admin_name])
-
-    if not lista_usuarios:
-        st.warning("Nenhum usuário cadastrado ainda.")
-        return
-
-    st.markdown("### Usuários cadastrados")
-    df_users = pd.DataFrame({
-        "Usuário": lista_usuarios,
-        "Trocar senha?": ["Sim" if users[u].get("trocar_senha", False) else "Não" for u in lista_usuarios],
-        "Ativo?": ["Sim" if users[u].get("ativo", True) else "Não" for u in lista_usuarios],
-    })
-    st.dataframe(df_users, use_container_width=True, hide_index=True)
-
-    st.divider()
-    st.markdown("### Alterar, excluir ou redefinir senha")
-
-    usuario_antigo = st.selectbox("Selecione o usuário", lista_usuarios, key="admin_usuario_antigo")
-    novo_nome = normalize_user(st.text_input("Novo nome", value=usuario_antigo, key="admin_novo_nome"))
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        if st.button("✏️ Alterar nome", use_container_width=True):
-            if not novo_nome:
-                st.warning("Informe um novo nome válido.")
-            elif novo_nome == admin_name:
-                st.error("Esse nome é reservado para o admin.")
-            elif novo_nome == usuario_antigo:
-                st.warning("O novo nome é igual ao nome atual.")
-            elif novo_nome in users:
-                st.error("Já existe um usuário com esse nome.")
-            else:
-                dados_user = users[usuario_antigo]
-                dados_user["alterado_em"] = now_iso()
-                dados_user["nome_anterior"] = usuario_antigo
-
-                save_user(novo_nome, dados_user, merge=False)
-                delete_user(usuario_antigo)
-                rename_palpites_usuario(usuario_antigo, novo_nome)
-
-                st.success(f"Usuário alterado de {usuario_antigo} para {novo_nome}.")
-                st.rerun()
-
-    with col2:
-        if st.button("🔑 Redefinir senha", use_container_width=True):
-            reset_password(usuario_antigo)
-            st.success(f"Senha de {usuario_antigo} redefinida para 123. No próximo login ele terá que criar uma nova senha.")
-            st.rerun()
-
-    with col3:
-        if st.button("🗑️ Excluir usuário", use_container_width=True):
-            delete_user(usuario_antigo)
-            delete_palpites_usuario(usuario_antigo)
-            st.success(f"Usuário {usuario_antigo} excluído.")
-            st.rerun()
-
-    st.divider()
-    st.markdown("### Criar novo usuário manualmente")
-    novo_usuario_manual = normalize_user(st.text_input("Nome do novo usuário", key="novo_usuario_manual"))
-    senha_manual = st.text_input("Senha do novo usuário", type="password", key="senha_usuario_manual")
-    confirma_senha_manual = st.text_input("Confirmar senha do novo usuário", type="password", key="confirma_senha_usuario_manual")
-
-    if st.button("➕ Criar usuário", use_container_width=True, key="btn_criar_usuario_admin"):
-        if not novo_usuario_manual or not senha_manual or not confirma_senha_manual:
-            st.warning("Informe o nome do usuário, a senha e a confirmação.")
-        elif novo_usuario_manual in users:
-            st.error("Esse usuário já existe.")
-        elif novo_usuario_manual == admin_name:
-            st.error("Esse nome é reservado para o admin.")
-        elif senha_manual != confirma_senha_manual:
-            st.error("As senhas não conferem.")
-        elif len(senha_manual) < 3:
-            st.error("A senha precisa ter pelo menos 3 caracteres.")
-        else:
-            create_user(novo_usuario_manual, senha_manual, master=False, trocar_senha=False)
-            st.success(f"Usuário {novo_usuario_manual} criado com a senha informada.")
-            st.rerun()
-
-
-# ===================== EDITAR PALPITES COMO ADMIN =====================
-def editar_palpites_admin():
-    st.subheader("🛠️ Editar palpites dos usuários")
-    st.warning("Modo admin: todos os jogos ficam abertos para edição, mesmo os que já passaram ou travaram.")
-
-    users = get_all_users()
-    admin_name = ADMIN_USER.upper()
-    lista_usuarios = sorted([u for u, d in users.items() if u != admin_name and d.get("ativo", True)])
-
-    if not lista_usuarios:
-        st.warning("Nenhum usuário disponível para editar.")
-        return
-
-    usuario_alvo = st.selectbox("Selecione o usuário para editar", lista_usuarios, key="admin_editar_palpites_usuario")
-    palpites_temp = dict(get_palpites_usuario(usuario_alvo))
-
-    st.markdown(f"### Editando palpites de: **{usuario_alvo}**")
-
-    for grupo in sorted(set(j["grupo"] for j in JOGOS)):
-        st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
-
-        h1, h2, h3, h4, h5, h6, h7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
-        h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
-        h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
-        h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
-        h4.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
-        h5.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
-        h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
-        h7.markdown("<div class='cabecalho-jogo'>Status</div>", unsafe_allow_html=True)
-
-        for j in [x for x in JOGOS if x["grupo"] == grupo]:
-            atual = palpites_temp.get(j["id"], {})
-            data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
-
-            c1, c2, c3, c4, c5, c6, c7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
-
-            with c1:
-                st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
-            with c2:
-                st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
-            with c3:
-                casa = seletor_gols(
-                    "Gols mandante",
-                    atual,
-                    "casa",
-                    disabled=False,
-                    key=f"admin_edit_{usuario_alvo}_{j['id']}_c",
-                )
-            with c4:
-                st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
-            with c5:
-                fora = seletor_gols(
-                    "Gols visitante",
-                    atual,
-                    "fora",
-                    disabled=False,
-                    key=f"admin_edit_{usuario_alvo}_{j['id']}_f",
-                )
-            with c6:
-                st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
-            with c7:
-                st.markdown("<div class='linha-jogo status-aberto'>🔓 Admin</div>", unsafe_allow_html=True)
-
-            aplicar_palpite_temp(
-                palpites_temp,
-                j["id"],
-                casa,
-                fora,
-                extras={
-                    "editado_por_admin": True,
-                    "admin": st.session_state.get("usuario", ADMIN_USER),
-                },
-            )
-
-    if st.button(f"Salvar palpites de {usuario_alvo}", use_container_width=True, key=f"salvar_palpites_admin_{usuario_alvo}"):
-        save_palpites_usuario(usuario_alvo, palpites_temp)
-        st.success(f"Palpites de {usuario_alvo} salvos no Firebase!")
-        st.rerun()
-
-
-# ===================== APP =====================
-def app():
-    aplicar_estilo()
-
-    usuario = st.session_state["usuario"]
-    user_data = get_user(usuario)
-
-    if not user_data:
-        st.session_state.clear()
-        st.error("Usuário não encontrado. Faça login novamente.")
-        st.stop()
-
-    if user_data.get("trocar_senha", False):
-        tela_trocar_senha(usuario, user_data)
-
-    is_admin = bool(user_data.get("master", False)) or usuario == ADMIN_USER.upper()
-
-    st.sidebar.success(f"Logado como: {usuario}")
-    if st.sidebar.button("Sair"):
-        st.session_state.clear()
-        st.rerun()
-
-    palpites_usuario = get_palpites_usuario(usuario)
-    resultados = get_resultados()
-
-    if is_admin:
-        menu = st.sidebar.radio("Menu", ["Meus palpites", "Editar palpites", "Classificação", "Resultados reais", "Gerenciar usuários"])
-    else:
-        menu = st.sidebar.radio("Menu", ["Meus palpites", "Classificação", "Ver resultados"])
-
-    st.markdown("<h1 style='text-align:center'>🏆 BOLÃO DA COPA DO MUNDO 2026 🏆</h1>", unsafe_allow_html=True)
-
-    if menu == "Meus palpites":
-        st.subheader("Minha aba de palpites")
-        st.info("Cada jogo trava automaticamente 1 hora antes do início.")
-        st.markdown("""
-        ### 📌 Regras de pontuação
-        - **3 pontos**: acertou o placar exato.
-        - **1 ponto**: acertou o resultado **W/D/L**: vitória do mandante, empate ou vitória do visitante.
-        - **0 pontos**: errou o resultado.
-        - **Sem pontuação**: se deixar `-`, fica como palpite não preenchido.
-        """)
-
-        palpites_temp = dict(palpites_usuario)
-
-        for grupo in sorted(set(j["grupo"] for j in JOGOS)):
-            st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
-
-            h1, h2, h3, h4, h5, h6, h7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
-            h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
-            h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
-            h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
-            h4.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
-            h5.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
-            h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
-            h7.markdown("<div class='cabecalho-jogo'>Status</div>", unsafe_allow_html=True)
-
-            for j in [x for x in JOGOS if x["grupo"] == grupo]:
-                lock = jogo_bloqueado(j["data_hora"])
-                atual = palpites_temp.get(j["id"], {})
-                data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
-
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 0.9])
-
-                with c1:
-                    st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
-                with c2:
-                    st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
-                with c3:
-                    casa = seletor_gols("Gols mandante", atual, "casa", disabled=lock, key=f"{usuario}_{j['id']}_c")
-                with c4:
-                    st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
-                with c5:
-                    fora = seletor_gols("Gols visitante", atual, "fora", disabled=lock, key=f"{usuario}_{j['id']}_f")
-                with c6:
-                    st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
-                with c7:
-                    if lock:
-                        st.markdown("<div class='linha-jogo status-fechado'>🔒 Fechado</div>", unsafe_allow_html=True)
-                    else:
-                        st.markdown("<div class='linha-jogo status-aberto'>✅ Aberto</div>", unsafe_allow_html=True)
-
-                if not lock:
-                    aplicar_palpite_temp(palpites_temp, j["id"], casa, fora)
-
-        if st.button("Salvar meus palpites", use_container_width=True):
-            save_palpites_usuario(usuario, palpites_temp)
-            st.success("Palpites salvos no Firebase!")
-            st.rerun()
-
-    elif menu == "Editar palpites":
-        if is_admin:
-            editar_palpites_admin()
-        else:
-            st.error("Você não tem permissão para acessar esta área.")
-
-    elif menu == "Classificação":
-        st.subheader("🏅 Classificação")
-
-        users = get_all_users()
-        admin_name = ADMIN_USER.upper()
-        usuarios_validos = sorted([u for u, d in users.items() if u != admin_name and d.get("ativo", True)])
-        todos_palpites = get_all_palpites()
-
-        linhas = []
-        for user in usuarios_validos:
-            palp_user = todos_palpites.get(user, {})
-            pontos = 0
-            exatos = 0
-            resultados_certos = 0
-
-            for j in JOGOS:
-                p = palp_user.get(j["id"])
-                r = resultados.get(j["id"])
-                pts, desc = calcula_pontos(p, r)
-                pontos += pts
-                if desc == "Placar exato":
-                    exatos += 1
-                elif desc == "Resultado certo":
-                    resultados_certos += 1
-
-            linhas.append({
-                "Participante": user,
-                "Pontos": pontos,
-                "Placares Exatos": exatos,
-                "Resultados Certos": resultados_certos
-            })
-
-        df = pd.DataFrame(linhas)
-        if not df.empty:
-            df = df.sort_values(["Pontos", "Placares Exatos", "Resultados Certos", "Participante"], ascending=[False, False, False, True]).reset_index(drop=True)
-            df.insert(0, "Pos", df.index + 1)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-        else:
-            st.warning("Ainda não há usuários cadastrados para aparecer na classificação.")
-
-    elif menu == "Gerenciar usuários":
-        if is_admin:
-            gerenciar_usuarios()
-        else:
-            st.error("Você não tem permissão para acessar esta área.")
-
-    else:
-        if is_admin:
-            st.subheader("Lançar resultados reais")
-            st.warning("Marque **Resultado definido** somente nos jogos que já terminaram. Jogo desmarcado não conta pontos na classificação.")
-
-            if st.button("🧹 Limpar todos os resultados reais", use_container_width=True):
-                save_resultados({})
-                st.success("Resultados reais limpos. A classificação foi zerada até você lançar novos resultados.")
-                st.rerun()
-
-            resultados_temp = dict(resultados)
-
-            for grupo in sorted(set(j["grupo"] for j in JOGOS)):
-                st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
-
-                h1, h2, h3, h4, h5, h6, h7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 1.2])
-                h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
-                h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
-                h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
-                h4.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
-                h5.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
-                h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
-                h7.markdown("<div class='cabecalho-jogo'>Definido?</div>", unsafe_allow_html=True)
-
-                for j in [x for x in JOGOS if x["grupo"] == grupo]:
-                    atual = resultados.get(j["id"], {})
-                    ja_definido = j["id"] in resultados
-                    data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
-
-                    c1, c2, c3, c4, c5, c6, c7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 1.2])
-
-                    with c1:
-                        st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
-                    with c2:
-                        st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
-                    with c3:
-                        casa = st.number_input("Gols mandante real", min_value=0, max_value=30, value=int(atual.get("casa", 0)), key=f"real_{j['id']}_c", label_visibility="collapsed")
-                    with c4:
-                        st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
-                    with c5:
-                        fora = st.number_input("Gols visitante real", min_value=0, max_value=30, value=int(atual.get("fora", 0)), key=f"real_{j['id']}_f", label_visibility="collapsed")
-                    with c6:
-                        st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
-                    with c7:
-                        marcado = st.checkbox("OK", value=ja_definido, key=f"real_{j['id']}_check", label_visibility="collapsed")
-
-                    if marcado:
-                        resultados_temp[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": now_iso()}
-                    else:
-                        resultados_temp.pop(j["id"], None)
-
-            if st.button("Salvar resultados reais", use_container_width=True):
-                save_resultados(resultados_temp)
-                st.success("Resultados reais salvos no Firebase!")
-                st.rerun()
-
-        else:
-            st.subheader("Resultados reais")
-            linhas = []
-            for j in JOGOS:
-                r = resultados.get(j["id"])
-                linhas.append({
-                    "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
-                    "Grupo": j["grupo"],
-                    "Jogo": f"{j['mandante']} x {j['visitante']}",
-                    "Resultado": "-" if not r else f"{r['casa']} x {r['fora']}"
-                })
-            st.dataframe(pd.DataFrame(linhas), use_container_width=True, hide_index=True)
-
-
-# ===================== MAIN =====================
-st.set_page_config(page_title="Bolão Copa 2026", layout="wide")
-
-if "usuario" not in st.session_state:
-    login_screen()
+    df_filtrado = aplicar_filtros(df, pode_filtrar_analista=True, key_prefix="cancelados")
+
+    st.metric("Retirados da conta", len(df_filtrado))
+
+    st.dataframe(
+        formatar_df_moeda(df_filtrado.drop(columns=["doc_id"], errors="ignore")),
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+def tela_regras():
+    st.header("⚙️ Regras e departamentos")
+
+    st.subheader("Regra da cobrança")
+    st.write("1. Primeiro o sistema remove produtos que possuem DT Agendamento preenchida.")
+    st.write("2. Só ficam produtos sem DT Agendamento.")
+    st.write(f"3. Depois, cobra somente pedidos com menor Data Prev Entrega até {data_br(data_limite_cobranca())}.")
+    st.write("4. Se o pedido tiver vários itens sem agendamento, o sistema usa a menor Data Prev Entrega.")
+    st.write("5. Se o pedido sumir do arquivo completo, ele será retirado da cobrança e da contagem.")
+    st.write("6. Não existe regra de marcar como entregue.")
+
+    st.subheader("Valores considerados")
+    st.write("Saldo CMV = Pré-nota CMV + Não Faturado CMV.")
+    st.write("Os valores são considerados apenas dos produtos que ficaram sem DT Agendamento.")
+
+    st.subheader("Analistas")
+
+    for analista, deps in ANALISTAS.items():
+        st.markdown(f"**{analista}**: {', '.join(deps)}")
+
+    st.subheader("Regra da cobrança manual")
+    st.write("1. Pedido atrasado entrou na carteira: fica como pendente.")
+    st.write("2. Clicou em registrar cobrança 1 vez: status Cobrado 1x.")
+    st.write("3. Clicou em registrar cobrança 2 vezes: status Cobrado 2x.")
+    st.write("4. Na 3ª cobrança: status muda para Acionar Comprador.")
+    st.write("5. Quando o comprador for acionado, marque no sistema.")
+
+
+# =========================
+# ROTEAMENTO
+# =========================
+st.title("📋 Cobrança de Carteira")
+st.caption("Controle de pedidos atrasados por analista, departamento, comprador e status de cobrança.")
+
+if usuario_logado == "Admin":
+    pagina = st.radio(
+        "Menu",
+        ["Atualizar", "Carteira Geral", "Fora do Atraso", "Retirados da Conta", "Regras"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    if pagina == "Atualizar":
+        tela_upload()
+
+    elif pagina == "Carteira Geral":
+        tela_carteira()
+
+    elif pagina == "Fora do Atraso":
+        tela_fora_atraso()
+
+    elif pagina == "Retirados da Conta":
+        tela_cancelados()
+
+    elif pagina == "Regras":
+        tela_regras()
+
 else:
-    app()
+    pagina = st.radio(
+        "Menu",
+        ["Minha Carteira", "Regras"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    if pagina == "Minha Carteira":
+        tela_carteira(usuario_logado)
+
+    elif pagina == "Regras":
+        tela_regras()
