@@ -27,7 +27,6 @@ USUARIOS_INICIAIS = [
 ]
 
 # ===================== JOGOS =====================
-# Formato: id, data_hora, grupo, mandante, visitante
 JOGOS = [
     # GRUPO A
     {"id":"A01","data_hora":"2026-06-11 16:00","grupo":"A","mandante":"México","visitante":"África do Sul"},
@@ -126,11 +125,7 @@ JOGOS = [
     {"id":"L06","data_hora":"2026-06-27 18:00","grupo":"L","mandante":"Croácia","visitante":"Gana"},
 ]
 
-
-
 # ===================== BANDEIRAS =====================
-# Usa imagens de bandeiras via FlagCDN, no estilo “ícone antes do time”.
-# Códigos especiais: Inglaterra e Escócia usam subdivisões do Reino Unido.
 BANDEIRAS_TIMES = {
     "México": "mx",
     "África do Sul": "za",
@@ -184,7 +179,6 @@ BANDEIRAS_TIMES = {
 
 
 def time_com_bandeira(nome_time):
-    """Retorna HTML com imagem da bandeira + nome do time."""
     nome_seguro = html.escape(nome_time or "")
     codigo = BANDEIRAS_TIMES.get(nome_time)
 
@@ -198,6 +192,7 @@ def time_com_bandeira(nome_time):
         f"<span>{nome_seguro}</span>"
         "</span>"
     )
+
 
 # ===================== ESTILO =====================
 def aplicar_estilo():
@@ -324,10 +319,6 @@ def aplicar_estilo():
 # ===================== FIREBASE =====================
 @st.cache_resource
 def get_db():
-    """
-    Para funcionar no Streamlit Cloud, coloque o JSON da conta de serviço em:
-    Settings > Secrets, com o nome [firebase_service_account]
-    """
     if not firebase_admin._apps:
         if "firebase_service_account" not in st.secrets:
             st.error("Configuração do Firebase não encontrada em st.secrets['firebase_service_account'].")
@@ -336,15 +327,9 @@ def get_db():
         cred = credentials.Certificate(dict(st.secrets["firebase_service_account"]))
         firebase_admin.initialize_app(cred)
 
-    # IMPORTANTE:
-    # O banco que você criou no Firebase está com ID "default".
-    # Se não informar isso, o SDK tenta abrir o banco antigo "(default)"
-    # e pode gerar erro NotFound.
     try:
         return firestore.client(database_id="default")
     except TypeError:
-        # Compatibilidade com versões antigas do firebase-admin.
-        # Se cair aqui, atualize o requirements.txt para firebase-admin>=6.5.0
         return firestore.client()
 
 
@@ -426,17 +411,6 @@ def reset_password(usuario):
 
 
 def ensure_initial_users():
-    """
-    Cria admin e participantes iniciais se ainda não existirem no Firebase.
-
-    Regra atual:
-    - Usuário novo entra com senha 123 e NÃO é obrigado a trocar no primeiro login.
-    - Só será obrigado a trocar se o admin usar o botão de redefinir senha.
-
-    Também corrige usuários que foram criados pela versão anterior do script
-    com trocar_senha=True no primeiro login. Se o campo senha_redefinida_em
-    não existir, entendemos que não foi uma redefinição feita pelo admin.
-    """
     users = get_all_users()
 
     if ADMIN_USER not in users:
@@ -447,8 +421,6 @@ def ensure_initial_users():
         if usuario not in users:
             create_user(usuario, SENHA_PADRAO, master=False, trocar_senha=False)
 
-    # Migração automática: desfaz a obrigação de trocar senha dos usuários
-    # criados pela versão antiga, sem atrapalhar uma redefinição feita pelo admin.
     users = get_all_users()
     for usuario, dados in users.items():
         if dados.get("trocar_senha", False) and not dados.get("senha_redefinida_em"):
@@ -488,8 +460,10 @@ def rename_palpites_usuario(usuario_antigo, novo_nome):
     usuario_antigo = normalize_user(usuario_antigo)
     novo_nome = normalize_user(novo_nome)
     dados = get_palpites_usuario(usuario_antigo)
+
     if dados:
         db.collection("palpites").document(novo_nome).set(dados)
+
     db.collection("palpites").document(usuario_antigo).delete()
 
 
@@ -604,13 +578,6 @@ def valor_em_branco(valor):
 
 
 def palpite_valido(palpite):
-    """
-    Regra importante:
-    - Palpite novo só vale se tiver preenchido=True.
-    - Palpite antigo 0x0 sem preenchido=True é considerado em branco,
-      porque nas versões antigas o sistema salvava 0x0 automaticamente.
-    - Palpite antigo diferente de 0x0 continua valendo.
-    """
     if not isinstance(palpite, dict):
         return False
 
@@ -632,8 +599,6 @@ def palpite_valido(palpite):
     if palpite.get("preenchido") is True:
         return True
 
-    # Compatibilidade com dados antigos:
-    # 0x0 sem a marcação preenchido=True não conta como palpite.
     if casa_int == 0 and fora_int == 0:
         return False
 
@@ -648,6 +613,7 @@ def valor_palpite_para_tela(palpite, campo):
         return "-"
 
     valor = palpite.get(campo)
+
     if valor_em_branco(valor):
         return "-"
 
@@ -712,6 +678,108 @@ def jogo_bloqueado(data_hora_str):
     return datetime.now(TZ) >= inicio - timedelta(hours=LOCK_HOURS_BEFORE)
 
 
+# ===================== RESUMO DE ACERTOS =====================
+def texto_placar_palpite(palpite):
+    if not palpite_valido(palpite):
+        return "-"
+
+    return f"{int(palpite['casa'])} x {int(palpite['fora'])}"
+
+
+def texto_placar_real(real):
+    if not real:
+        return "-"
+
+    return f"{int(real['casa'])} x {int(real['fora'])}"
+
+
+def montar_resumo_acertos(usuario, palp_user, resultados):
+    linhas = []
+
+    for j in JOGOS:
+        palpite = palp_user.get(j["id"])
+        real = resultados.get(j["id"])
+
+        pontos, tipo_acerto = calcula_pontos(palpite, real)
+
+        if pontos > 0:
+            linhas.append({
+                "Grupo": j["grupo"],
+                "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
+                "Jogo": f"{j['mandante']} x {j['visitante']}",
+                "Palpite": texto_placar_palpite(palpite),
+                "Resultado real": texto_placar_real(real),
+                "Acerto": tipo_acerto,
+                "Pontos": pontos,
+            })
+
+    return pd.DataFrame(linhas)
+
+
+def exibir_resumo_acertos(is_admin, usuario_logado, usuarios_validos, todos_palpites, resultados):
+    st.divider()
+    st.subheader("📋 Resumo dos acertos")
+
+    if not resultados:
+        st.info("Nenhum resultado real foi lançado ainda. Quando o admin lançar os resultados, os acertos aparecem aqui.")
+        return
+
+    if is_admin:
+        st.info("Área do admin: você consegue ver o resumo de acertos de todos os usuários.")
+
+        modo_resumo = st.radio(
+            "Como deseja visualizar?",
+            ["Todos os usuários", "Filtrar usuário"],
+            horizontal=True,
+            key="modo_resumo_acertos_admin",
+        )
+
+        if modo_resumo == "Filtrar usuário":
+            usuario_escolhido = st.selectbox(
+                "Selecione o usuário",
+                usuarios_validos,
+                key="usuario_resumo_acertos_admin",
+            )
+
+            palp_user = todos_palpites.get(usuario_escolhido, {})
+            df_resumo = montar_resumo_acertos(usuario_escolhido, palp_user, resultados)
+
+            st.markdown(f"### 👤 {usuario_escolhido}")
+
+            if df_resumo.empty:
+                st.warning("Esse usuário ainda não acertou nenhum jogo com resultado lançado.")
+            else:
+                total_pontos = int(df_resumo["Pontos"].sum())
+                st.success(f"{usuario_escolhido} acertou {len(df_resumo)} jogo(s), somando {total_pontos} ponto(s).")
+                st.dataframe(df_resumo, use_container_width=True, hide_index=True)
+
+        else:
+            for user in usuarios_validos:
+                palp_user = todos_palpites.get(user, {})
+                df_resumo = montar_resumo_acertos(user, palp_user, resultados)
+
+                qtd_acertos = len(df_resumo)
+                total_pontos = int(df_resumo["Pontos"].sum()) if not df_resumo.empty else 0
+
+                with st.expander(f"{user} — {qtd_acertos} acerto(s) — {total_pontos} ponto(s)", expanded=False):
+                    if df_resumo.empty:
+                        st.warning("Nenhum acerto ainda.")
+                    else:
+                        st.dataframe(df_resumo, use_container_width=True, hide_index=True)
+
+    else:
+        palp_user = todos_palpites.get(usuario_logado, {})
+        df_resumo = montar_resumo_acertos(usuario_logado, palp_user, resultados)
+
+        st.info("Aqui aparecem somente os jogos que você acertou.")
+
+        if df_resumo.empty:
+            st.warning("Você ainda não acertou nenhum jogo com resultado lançado.")
+        else:
+            total_pontos = int(df_resumo["Pontos"].sum())
+            st.success(f"Você acertou {len(df_resumo)} jogo(s), somando {total_pontos} ponto(s).")
+            st.dataframe(df_resumo, use_container_width=True, hide_index=True)
+
 
 # ===================== GERENCIAR USUÁRIOS =====================
 def gerenciar_usuarios():
@@ -727,11 +795,13 @@ def gerenciar_usuarios():
         return
 
     st.markdown("### Usuários cadastrados")
+
     df_users = pd.DataFrame({
         "Usuário": lista_usuarios,
         "Trocar senha?": ["Sim" if users[u].get("trocar_senha", False) else "Não" for u in lista_usuarios],
         "Ativo?": ["Sim" if users[u].get("ativo", True) else "Não" for u in lista_usuarios],
     })
+
     st.dataframe(df_users, use_container_width=True, hide_index=True)
 
     st.divider()
@@ -779,6 +849,7 @@ def gerenciar_usuarios():
 
     st.divider()
     st.markdown("### Criar novo usuário manualmente")
+
     novo_usuario_manual = normalize_user(st.text_input("Nome do novo usuário", key="novo_usuario_manual"))
     senha_manual = st.text_input("Senha do novo usuário", type="password", key="senha_usuario_manual")
     confirma_senha_manual = st.text_input("Confirmar senha do novo usuário", type="password", key="confirma_senha_usuario_manual")
@@ -838,8 +909,10 @@ def editar_palpites_admin():
 
             with c1:
                 st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
+
             with c2:
                 st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
+
             with c3:
                 casa = seletor_gols(
                     "Gols mandante",
@@ -848,8 +921,10 @@ def editar_palpites_admin():
                     disabled=False,
                     key=f"admin_edit_{usuario_alvo}_{j['id']}_c",
                 )
+
             with c4:
                 st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
+
             with c5:
                 fora = seletor_gols(
                     "Gols visitante",
@@ -858,8 +933,10 @@ def editar_palpites_admin():
                     disabled=False,
                     key=f"admin_edit_{usuario_alvo}_{j['id']}_f",
                 )
+
             with c6:
                 st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
+
             with c7:
                 st.markdown("<div class='linha-jogo status-aberto'>🔓 Admin</div>", unsafe_allow_html=True)
 
@@ -898,6 +975,7 @@ def app():
     is_admin = bool(user_data.get("master", False)) or usuario == ADMIN_USER.upper()
 
     st.sidebar.success(f"Logado como: {usuario}")
+
     if st.sidebar.button("Sair"):
         st.session_state.clear()
         st.rerun()
@@ -906,15 +984,22 @@ def app():
     resultados = get_resultados()
 
     if is_admin:
-        menu = st.sidebar.radio("Menu", ["Meus palpites", "Editar palpites", "Classificação", "Resultados reais", "Gerenciar usuários"])
+        menu = st.sidebar.radio(
+            "Menu",
+            ["Meus palpites", "Editar palpites", "Classificação", "Resultados reais", "Gerenciar usuários"]
+        )
     else:
-        menu = st.sidebar.radio("Menu", ["Meus palpites", "Classificação", "Ver resultados"])
+        menu = st.sidebar.radio(
+            "Menu",
+            ["Meus palpites", "Classificação", "Ver resultados"]
+        )
 
     st.markdown("<h1 style='text-align:center'>🏆 BOLÃO DA COPA DO MUNDO 2026 🏆</h1>", unsafe_allow_html=True)
 
     if menu == "Meus palpites":
         st.subheader("Minha aba de palpites")
         st.info("Cada jogo trava automaticamente 1 hora antes do início.")
+
         st.markdown("""
         ### 📌 Regras de pontuação
         - **3 pontos**: acertou o placar exato.
@@ -946,16 +1031,34 @@ def app():
 
                 with c1:
                     st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
+
                 with c2:
                     st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
+
                 with c3:
-                    casa = seletor_gols("Gols mandante", atual, "casa", disabled=lock, key=f"{usuario}_{j['id']}_c")
+                    casa = seletor_gols(
+                        "Gols mandante",
+                        atual,
+                        "casa",
+                        disabled=lock,
+                        key=f"{usuario}_{j['id']}_c"
+                    )
+
                 with c4:
                     st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
+
                 with c5:
-                    fora = seletor_gols("Gols visitante", atual, "fora", disabled=lock, key=f"{usuario}_{j['id']}_f")
+                    fora = seletor_gols(
+                        "Gols visitante",
+                        atual,
+                        "fora",
+                        disabled=lock,
+                        key=f"{usuario}_{j['id']}_f"
+                    )
+
                 with c6:
                     st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
+
                 with c7:
                     if lock:
                         st.markdown("<div class='linha-jogo status-fechado'>🔒 Fechado</div>", unsafe_allow_html=True)
@@ -985,6 +1088,7 @@ def app():
         todos_palpites = get_all_palpites()
 
         linhas = []
+
         for user in usuarios_validos:
             palp_user = todos_palpites.get(user, {})
             pontos = 0
@@ -994,8 +1098,10 @@ def app():
             for j in JOGOS:
                 p = palp_user.get(j["id"])
                 r = resultados.get(j["id"])
+
                 pts, desc = calcula_pontos(p, r)
                 pontos += pts
+
                 if desc == "Placar exato":
                     exatos += 1
                 elif desc == "Resultado certo":
@@ -1005,14 +1111,29 @@ def app():
                 "Participante": user,
                 "Pontos": pontos,
                 "Placares Exatos": exatos,
-                "Resultados Certos": resultados_certos
+                "Resultados Certos": resultados_certos,
             })
 
         df = pd.DataFrame(linhas)
+
         if not df.empty:
-            df = df.sort_values(["Pontos", "Placares Exatos", "Resultados Certos", "Participante"], ascending=[False, False, False, True]).reset_index(drop=True)
+            df = df.sort_values(
+                ["Pontos", "Placares Exatos", "Resultados Certos", "Participante"],
+                ascending=[False, False, False, True],
+            ).reset_index(drop=True)
+
             df.insert(0, "Pos", df.index + 1)
+
             st.dataframe(df, use_container_width=True, hide_index=True)
+
+            exibir_resumo_acertos(
+                is_admin=is_admin,
+                usuario_logado=usuario,
+                usuarios_validos=usuarios_validos,
+                todos_palpites=todos_palpites,
+                resultados=resultados,
+            )
+
         else:
             st.warning("Ainda não há usuários cadastrados para aparecer na classificação.")
 
@@ -1055,21 +1176,50 @@ def app():
 
                     with c1:
                         st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
+
                     with c2:
                         st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
+
                     with c3:
-                        casa = st.number_input("Gols mandante real", min_value=0, max_value=30, value=int(atual.get("casa", 0)), key=f"real_{j['id']}_c", label_visibility="collapsed")
+                        casa = st.number_input(
+                            "Gols mandante real",
+                            min_value=0,
+                            max_value=30,
+                            value=int(atual.get("casa", 0)),
+                            key=f"real_{j['id']}_c",
+                            label_visibility="collapsed"
+                        )
+
                     with c4:
                         st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
+
                     with c5:
-                        fora = st.number_input("Gols visitante real", min_value=0, max_value=30, value=int(atual.get("fora", 0)), key=f"real_{j['id']}_f", label_visibility="collapsed")
+                        fora = st.number_input(
+                            "Gols visitante real",
+                            min_value=0,
+                            max_value=30,
+                            value=int(atual.get("fora", 0)),
+                            key=f"real_{j['id']}_f",
+                            label_visibility="collapsed"
+                        )
+
                     with c6:
                         st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
+
                     with c7:
-                        marcado = st.checkbox("OK", value=ja_definido, key=f"real_{j['id']}_check", label_visibility="collapsed")
+                        marcado = st.checkbox(
+                            "OK",
+                            value=ja_definido,
+                            key=f"real_{j['id']}_check",
+                            label_visibility="collapsed"
+                        )
 
                     if marcado:
-                        resultados_temp[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": now_iso()}
+                        resultados_temp[j["id"]] = {
+                            "casa": casa,
+                            "fora": fora,
+                            "salvo_em": now_iso()
+                        }
                     else:
                         resultados_temp.pop(j["id"], None)
 
@@ -1080,15 +1230,19 @@ def app():
 
         else:
             st.subheader("Resultados reais")
+
             linhas = []
+
             for j in JOGOS:
                 r = resultados.get(j["id"])
+
                 linhas.append({
                     "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
                     "Grupo": j["grupo"],
                     "Jogo": f"{j['mandante']} x {j['visitante']}",
                     "Resultado": "-" if not r else f"{r['casa']} x {r['fora']}"
                 })
+
             st.dataframe(pd.DataFrame(linhas), use_container_width=True, hide_index=True)
 
 
