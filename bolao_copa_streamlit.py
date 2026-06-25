@@ -125,6 +125,53 @@ JOGOS = [
     {"id":"L06","data_hora":"2026-06-27 18:00","grupo":"L","mandante":"Croácia","visitante":"Gana"},
 ]
 
+
+# ===================== MATA-MATA =====================
+# Horários em America/Maceio (BRT). Os terceiros colocados precisam ser definidos
+# quando a combinação oficial dos melhores terceiros sair. O admin pode preencher
+# manualmente na tela "Configurar mata-mata".
+MATA_MATA = [
+    # 32 avos / fase de 32
+    {"id":"M73", "fase":"32 avos", "data_hora":"2026-06-28 16:00", "estadio":"Los Angeles Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"A", "pos":2, "label":"2º Grupo A", "confirmado":"África do Sul"}, "origem_visitante":{"tipo":"grupo", "grupo":"B", "pos":2, "label":"2º Grupo B", "confirmado":"Canadá"}},
+    {"id":"M74", "fase":"32 avos", "data_hora":"2026-06-29 17:30", "estadio":"Boston Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"E", "pos":1, "label":"1º Grupo E", "confirmado":"Alemanha"}, "origem_visitante":{"tipo":"terceiro", "grupos":"A/B/C/D/F", "label":"3º Grupo A/B/C/D/F"}},
+    {"id":"M75", "fase":"32 avos", "data_hora":"2026-06-29 22:00", "estadio":"Guadalajara Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"F", "pos":1, "label":"1º Grupo F"}, "origem_visitante":{"tipo":"grupo", "grupo":"C", "pos":2, "label":"2º Grupo C", "confirmado":"Marrocos"}},
+    {"id":"M76", "fase":"32 avos", "data_hora":"2026-06-29 14:00", "estadio":"Houston Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"C", "pos":1, "label":"1º Grupo C", "confirmado":"Brasil"}, "origem_visitante":{"tipo":"grupo", "grupo":"F", "pos":2, "label":"2º Grupo F"}},
+    {"id":"M77", "fase":"32 avos", "data_hora":"2026-06-30 18:00", "estadio":"New York New Jersey Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"I", "pos":1, "label":"1º Grupo I"}, "origem_visitante":{"tipo":"terceiro", "grupos":"C/D/F/G/H", "label":"3º Grupo C/D/F/G/H"}},
+    {"id":"M78", "fase":"32 avos", "data_hora":"2026-06-30 14:00", "estadio":"Dallas Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"E", "pos":2, "label":"2º Grupo E"}, "origem_visitante":{"tipo":"grupo", "grupo":"I", "pos":2, "label":"2º Grupo I"}},
+    {"id":"M79", "fase":"32 avos", "data_hora":"2026-06-30 22:00", "estadio":"Mexico City Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"A", "pos":1, "label":"1º Grupo A", "confirmado":"México"}, "origem_visitante":{"tipo":"terceiro", "grupos":"C/E/F/H/I", "label":"3º Grupo C/E/F/H/I"}},
+    {"id":"M80", "fase":"32 avos", "data_hora":"2026-07-01 13:00", "estadio":"Atlanta Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"L", "pos":1, "label":"1º Grupo L"}, "origem_visitante":{"tipo":"terceiro", "grupos":"E/H/I/J/K", "label":"3º Grupo E/H/I/J/K"}},
+    {"id":"M81", "fase":"32 avos", "data_hora":"2026-07-01 21:00", "estadio":"San Francisco Bay Area Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"D", "pos":1, "label":"1º Grupo D", "confirmado":"Estados Unidos"}, "origem_visitante":{"tipo":"terceiro", "grupos":"B/E/F/I/J", "label":"3º Grupo B/E/F/I/J"}},
+    {"id":"M82", "fase":"32 avos", "data_hora":"2026-07-01 17:00", "estadio":"Seattle Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"G", "pos":1, "label":"1º Grupo G"}, "origem_visitante":{"tipo":"terceiro", "grupos":"A/E/H/I/J", "label":"3º Grupo A/E/H/I/J"}},
+    {"id":"M83", "fase":"32 avos", "data_hora":"2026-07-02 20:00", "estadio":"Toronto Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"K", "pos":2, "label":"2º Grupo K"}, "origem_visitante":{"tipo":"grupo", "grupo":"L", "pos":2, "label":"2º Grupo L"}},
+    {"id":"M84", "fase":"32 avos", "data_hora":"2026-07-02 16:00", "estadio":"Los Angeles Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"H", "pos":1, "label":"1º Grupo H"}, "origem_visitante":{"tipo":"grupo", "grupo":"J", "pos":2, "label":"2º Grupo J"}},
+    {"id":"M85", "fase":"32 avos", "data_hora":"2026-07-03 00:00", "estadio":"BC Place Vancouver", "origem_mandante":{"tipo":"grupo", "grupo":"B", "pos":1, "label":"1º Grupo B", "confirmado":"Suíça"}, "origem_visitante":{"tipo":"terceiro", "grupos":"E/F/G/I/J", "label":"3º Grupo E/F/G/I/J"}},
+    {"id":"M86", "fase":"32 avos", "data_hora":"2026-07-03 19:00", "estadio":"Miami Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"J", "pos":1, "label":"1º Grupo J", "confirmado":"Argentina"}, "origem_visitante":{"tipo":"grupo", "grupo":"H", "pos":2, "label":"2º Grupo H"}},
+    {"id":"M87", "fase":"32 avos", "data_hora":"2026-07-03 22:30", "estadio":"Kansas City Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"K", "pos":1, "label":"1º Grupo K"}, "origem_visitante":{"tipo":"terceiro", "grupos":"D/E/I/J/L", "label":"3º Grupo D/E/I/J/L"}},
+    {"id":"M88", "fase":"32 avos", "data_hora":"2026-07-03 15:00", "estadio":"Dallas Stadium", "origem_mandante":{"tipo":"grupo", "grupo":"D", "pos":2, "label":"2º Grupo D"}, "origem_visitante":{"tipo":"grupo", "grupo":"G", "pos":2, "label":"2º Grupo G"}},
+
+    # Oitavas
+    {"id":"M89", "fase":"Oitavas", "data_hora":"2026-07-04 18:00", "estadio":"Philadelphia Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M74", "label":"Vencedor M74"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M77", "label":"Vencedor M77"}},
+    {"id":"M90", "fase":"Oitavas", "data_hora":"2026-07-04 14:00", "estadio":"Houston Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M73", "label":"Vencedor M73"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M75", "label":"Vencedor M75"}},
+    {"id":"M91", "fase":"Oitavas", "data_hora":"2026-07-05 17:00", "estadio":"New York New Jersey Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M76", "label":"Vencedor M76"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M78", "label":"Vencedor M78"}},
+    {"id":"M92", "fase":"Oitavas", "data_hora":"2026-07-05 21:00", "estadio":"Mexico City Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M79", "label":"Vencedor M79"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M80", "label":"Vencedor M80"}},
+    {"id":"M93", "fase":"Oitavas", "data_hora":"2026-07-06 16:00", "estadio":"Dallas Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M83", "label":"Vencedor M83"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M84", "label":"Vencedor M84"}},
+    {"id":"M94", "fase":"Oitavas", "data_hora":"2026-07-06 21:00", "estadio":"Seattle Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M81", "label":"Vencedor M81"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M82", "label":"Vencedor M82"}},
+    {"id":"M95", "fase":"Oitavas", "data_hora":"2026-07-07 13:00", "estadio":"Atlanta Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M86", "label":"Vencedor M86"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M88", "label":"Vencedor M88"}},
+    {"id":"M96", "fase":"Oitavas", "data_hora":"2026-07-07 17:00", "estadio":"BC Place Vancouver", "origem_mandante":{"tipo":"vencedor", "jogo":"M85", "label":"Vencedor M85"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M87", "label":"Vencedor M87"}},
+
+    # Quartas, semifinal, terceiro lugar e final
+    {"id":"M97", "fase":"Quartas", "data_hora":"2026-07-09 17:00", "estadio":"Boston Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M89", "label":"Vencedor M89"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M90", "label":"Vencedor M90"}},
+    {"id":"M98", "fase":"Quartas", "data_hora":"2026-07-10 16:00", "estadio":"Los Angeles Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M93", "label":"Vencedor M93"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M94", "label":"Vencedor M94"}},
+    {"id":"M99", "fase":"Quartas", "data_hora":"2026-07-11 18:00", "estadio":"Miami Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M91", "label":"Vencedor M91"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M92", "label":"Vencedor M92"}},
+    {"id":"M100", "fase":"Quartas", "data_hora":"2026-07-11 22:00", "estadio":"Kansas City Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M95", "label":"Vencedor M95"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M96", "label":"Vencedor M96"}},
+    {"id":"M101", "fase":"Semifinal", "data_hora":"2026-07-14 16:00", "estadio":"Dallas Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M97", "label":"Vencedor M97"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M98", "label":"Vencedor M98"}},
+    {"id":"M102", "fase":"Semifinal", "data_hora":"2026-07-15 16:00", "estadio":"Atlanta Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M99", "label":"Vencedor M99"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M100", "label":"Vencedor M100"}},
+    {"id":"M103", "fase":"Terceiro lugar", "data_hora":"2026-07-18 18:00", "estadio":"Miami Stadium", "origem_mandante":{"tipo":"perdedor", "jogo":"M101", "label":"Perdedor M101"}, "origem_visitante":{"tipo":"perdedor", "jogo":"M102", "label":"Perdedor M102"}},
+    {"id":"M104", "fase":"Final", "data_hora":"2026-07-19 16:00", "estadio":"New York New Jersey Stadium", "origem_mandante":{"tipo":"vencedor", "jogo":"M101", "label":"Vencedor M101"}, "origem_visitante":{"tipo":"vencedor", "jogo":"M102", "label":"Vencedor M102"}},
+]
+
+ORDEM_FASES_MATA_MATA = ["32 avos", "Oitavas", "Quartas", "Semifinal", "Terceiro lugar", "Final"]
+
 # ===================== BANDEIRAS =====================
 BANDEIRAS_TIMES = {
     "México": "mx",
@@ -478,6 +525,17 @@ def save_resultados(resultados):
     db.collection("configuracoes").document("resultados_reais").set(resultados)
 
 
+def get_mata_mata_manual():
+    db = get_db()
+    doc = db.collection("configuracoes").document("mata_mata_manual").get()
+    return doc.to_dict() or {}
+
+
+def save_mata_mata_manual(dados):
+    db = get_db()
+    db.collection("configuracoes").document("mata_mata_manual").set(dados)
+
+
 # ===================== LOGIN =====================
 def tela_trocar_senha(usuario, user_data):
     st.warning("Você precisa criar uma nova senha antes de continuar.")
@@ -678,6 +736,184 @@ def jogo_bloqueado(data_hora_str):
     return datetime.now(TZ) >= inicio - timedelta(hours=LOCK_HOURS_BEFORE)
 
 
+# ===================== CLASSIFICAÇÃO DOS GRUPOS / MATA-MATA =====================
+def grupo_completo(resultados, grupo):
+    jogos_grupo = [j for j in JOGOS if j["grupo"] == grupo]
+    return all(j["id"] in resultados for j in jogos_grupo)
+
+
+def classificacao_grupo_por_resultados(resultados, grupo):
+    jogos_grupo = [j for j in JOGOS if j["grupo"] == grupo]
+    times = sorted(set([j["mandante"] for j in jogos_grupo] + [j["visitante"] for j in jogos_grupo]))
+
+    tabela = {
+        time: {
+            "time": time,
+            "Pontos": 0,
+            "Jogos": 0,
+            "Vitórias": 0,
+            "Empates": 0,
+            "Derrotas": 0,
+            "GP": 0,
+            "GC": 0,
+            "SG": 0,
+        }
+        for time in times
+    }
+
+    for j in jogos_grupo:
+        r = resultados.get(j["id"])
+        if not r:
+            continue
+
+        casa = int(r.get("casa", 0))
+        fora = int(r.get("fora", 0))
+        mandante = j["mandante"]
+        visitante = j["visitante"]
+
+        tabela[mandante]["Jogos"] += 1
+        tabela[visitante]["Jogos"] += 1
+        tabela[mandante]["GP"] += casa
+        tabela[mandante]["GC"] += fora
+        tabela[visitante]["GP"] += fora
+        tabela[visitante]["GC"] += casa
+
+        if casa > fora:
+            tabela[mandante]["Pontos"] += 3
+            tabela[mandante]["Vitórias"] += 1
+            tabela[visitante]["Derrotas"] += 1
+        elif casa < fora:
+            tabela[visitante]["Pontos"] += 3
+            tabela[visitante]["Vitórias"] += 1
+            tabela[mandante]["Derrotas"] += 1
+        else:
+            tabela[mandante]["Pontos"] += 1
+            tabela[visitante]["Pontos"] += 1
+            tabela[mandante]["Empates"] += 1
+            tabela[visitante]["Empates"] += 1
+
+    for time in tabela:
+        tabela[time]["SG"] = tabela[time]["GP"] - tabela[time]["GC"]
+
+    return sorted(
+        tabela.values(),
+        key=lambda x: (-x["Pontos"], -x["SG"], -x["GP"], -x["Vitórias"], x["time"]),
+    )
+
+
+def todas_classificacoes_grupos(resultados):
+    dados = {}
+    for grupo in sorted(set(j["grupo"] for j in JOGOS)):
+        if grupo_completo(resultados, grupo):
+            dados[grupo] = classificacao_grupo_por_resultados(resultados, grupo)
+    return dados
+
+
+def eh_nome_placeholder(nome):
+    nome = str(nome or "")
+    prefixos = ("1º Grupo", "2º Grupo", "3º Grupo", "Vencedor", "Perdedor", "A definir")
+    return nome.startswith(prefixos)
+
+
+def vencedor_ou_perdedor_jogo(jogo_id, resultados, mata_mata_manual, retornar="vencedor", visitados=None):
+    visitados = visitados or set()
+    if jogo_id in visitados:
+        return None
+
+    visitados.add(jogo_id)
+    resultado = resultados.get(jogo_id)
+
+    if not resultado:
+        return None
+
+    jogo = next((j for j in resolver_mata_mata(resultados, mata_mata_manual, visitados) if j["id"] == jogo_id), None)
+    if not jogo:
+        return None
+
+    mandante = jogo.get("mandante", "")
+    visitante = jogo.get("visitante", "")
+
+    if eh_nome_placeholder(mandante) or eh_nome_placeholder(visitante):
+        return None
+
+    casa = int(resultado.get("casa", 0))
+    fora = int(resultado.get("fora", 0))
+    vencedor_manual = resultado.get("vencedor")
+
+    if casa > fora:
+        vencedor = mandante
+        perdedor = visitante
+    elif casa < fora:
+        vencedor = visitante
+        perdedor = mandante
+    elif vencedor_manual == mandante:
+        vencedor = mandante
+        perdedor = visitante
+    elif vencedor_manual == visitante:
+        vencedor = visitante
+        perdedor = mandante
+    else:
+        return None
+
+    return vencedor if retornar == "vencedor" else perdedor
+
+
+def resolver_origem_mata_mata(origem, resultados, mata_mata_manual, visitados=None):
+    classificacoes = todas_classificacoes_grupos(resultados)
+    tipo = origem.get("tipo")
+
+    if tipo == "grupo":
+        grupo = origem.get("grupo")
+        pos = int(origem.get("pos", 0))
+        if grupo in classificacoes and len(classificacoes[grupo]) >= pos:
+            return classificacoes[grupo][pos - 1]["time"]
+        if origem.get("confirmado"):
+            return origem.get("confirmado")
+        return origem.get("label", "A definir")
+
+    if tipo == "terceiro":
+        if origem.get("confirmado"):
+            return origem.get("confirmado")
+        return origem.get("label", "3º melhor colocado")
+
+    if tipo == "vencedor":
+        nome = vencedor_ou_perdedor_jogo(origem.get("jogo"), resultados, mata_mata_manual, "vencedor", visitados)
+        return nome or origem.get("label", f"Vencedor {origem.get('jogo')}")
+
+    if tipo == "perdedor":
+        nome = vencedor_ou_perdedor_jogo(origem.get("jogo"), resultados, mata_mata_manual, "perdedor", visitados)
+        return nome or origem.get("label", f"Perdedor {origem.get('jogo')}")
+
+    return origem.get("label", "A definir")
+
+
+def resolver_mata_mata(resultados=None, mata_mata_manual=None, visitados=None):
+    resultados = resultados or {}
+    mata_mata_manual = mata_mata_manual or {}
+    visitados = visitados or set()
+    jogos_resolvidos = []
+
+    for jogo in MATA_MATA:
+        manual = mata_mata_manual.get(jogo["id"], {}) if isinstance(mata_mata_manual, dict) else {}
+        mandante_manual = (manual.get("mandante") or "").strip()
+        visitante_manual = (manual.get("visitante") or "").strip()
+
+        mandante = mandante_manual or resolver_origem_mata_mata(jogo["origem_mandante"], resultados, mata_mata_manual, visitados)
+        visitante = visitante_manual or resolver_origem_mata_mata(jogo["origem_visitante"], resultados, mata_mata_manual, visitados)
+
+        item = dict(jogo)
+        item["grupo"] = jogo["fase"]
+        item["mandante"] = mandante
+        item["visitante"] = visitante
+        jogos_resolvidos.append(item)
+
+    return jogos_resolvidos
+
+
+def get_jogos_para_pontuar(resultados=None, mata_mata_manual=None):
+    return JOGOS + resolver_mata_mata(resultados or {}, mata_mata_manual or {})
+
+
 # ===================== RESUMO DE ACERTOS =====================
 def texto_placar_palpite(palpite):
     if not palpite_valido(palpite):
@@ -693,10 +929,11 @@ def texto_placar_real(real):
     return f"{int(real['casa'])} x {int(real['fora'])}"
 
 
-def montar_resumo_acertos(usuario, palp_user, resultados):
+def montar_resumo_acertos(usuario, palp_user, resultados, jogos_base=None):
     linhas = []
+    jogos_base = jogos_base or JOGOS
 
-    for j in JOGOS:
+    for j in jogos_base:
         palpite = palp_user.get(j["id"])
         real = resultados.get(j["id"])
 
@@ -704,7 +941,7 @@ def montar_resumo_acertos(usuario, palp_user, resultados):
 
         if pontos > 0:
             linhas.append({
-                "Grupo": j["grupo"],
+                "Fase/Grupo": j.get("grupo", j.get("fase", "")),
                 "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
                 "Jogo": f"{j['mandante']} x {j['visitante']}",
                 "Palpite": texto_placar_palpite(palpite),
@@ -716,7 +953,7 @@ def montar_resumo_acertos(usuario, palp_user, resultados):
     return pd.DataFrame(linhas)
 
 
-def exibir_resumo_acertos(is_admin, usuario_logado, usuarios_validos, todos_palpites, resultados):
+def exibir_resumo_acertos(is_admin, usuario_logado, usuarios_validos, todos_palpites, resultados, jogos_base=None):
     st.divider()
     st.subheader("📋 Resumo dos acertos")
 
@@ -742,7 +979,7 @@ def exibir_resumo_acertos(is_admin, usuario_logado, usuarios_validos, todos_palp
             )
 
             palp_user = todos_palpites.get(usuario_escolhido, {})
-            df_resumo = montar_resumo_acertos(usuario_escolhido, palp_user, resultados)
+            df_resumo = montar_resumo_acertos(usuario_escolhido, palp_user, resultados, jogos_base)
 
             st.markdown(f"### 👤 {usuario_escolhido}")
 
@@ -756,7 +993,7 @@ def exibir_resumo_acertos(is_admin, usuario_logado, usuarios_validos, todos_palp
         else:
             for user in usuarios_validos:
                 palp_user = todos_palpites.get(user, {})
-                df_resumo = montar_resumo_acertos(user, palp_user, resultados)
+                df_resumo = montar_resumo_acertos(user, palp_user, resultados, jogos_base)
 
                 qtd_acertos = len(df_resumo)
                 total_pontos = int(df_resumo["Pontos"].sum()) if not df_resumo.empty else 0
@@ -769,7 +1006,7 @@ def exibir_resumo_acertos(is_admin, usuario_logado, usuarios_validos, todos_palp
 
     else:
         palp_user = todos_palpites.get(usuario_logado, {})
-        df_resumo = montar_resumo_acertos(usuario_logado, palp_user, resultados)
+        df_resumo = montar_resumo_acertos(usuario_logado, palp_user, resultados, jogos_base)
 
         st.info("Aqui aparecem somente os jogos que você acertou.")
 
@@ -957,6 +1194,232 @@ def editar_palpites_admin():
         st.rerun()
 
 
+
+
+# ===================== MATA-MATA UI =====================
+def exibir_linhas_palpites(jogos, usuario, palpites_temp, prefixo_key, admin_liberado=False):
+    for fase in ORDEM_FASES_MATA_MATA:
+        jogos_fase = [j for j in jogos if j.get("fase") == fase]
+        if not jogos_fase:
+            continue
+
+        st.markdown(f"<div class='grupo-box'>{fase}</div>", unsafe_allow_html=True)
+
+        h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([1.35, 0.9, 2.25, 0.55, 0.35, 0.55, 2.25, 0.9])
+        h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
+        h2.markdown("<div class='cabecalho-jogo'>Jogo</div>", unsafe_allow_html=True)
+        h3.markdown("<div class='cabecalho-jogo'>Time 1</div>", unsafe_allow_html=True)
+        h4.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+        h5.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
+        h6.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+        h7.markdown("<div class='cabecalho-jogo'>Time 2</div>", unsafe_allow_html=True)
+        h8.markdown("<div class='cabecalho-jogo'>Status</div>", unsafe_allow_html=True)
+
+        for j in jogos_fase:
+            time_indefinido = eh_nome_placeholder(j.get("mandante")) or eh_nome_placeholder(j.get("visitante"))
+            lock = False if admin_liberado else (jogo_bloqueado(j["data_hora"]) or time_indefinido)
+            atual = palpites_temp.get(j["id"], {})
+            data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
+
+            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1.35, 0.9, 2.25, 0.55, 0.35, 0.55, 2.25, 0.9])
+
+            with c1:
+                st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
+
+            with c2:
+                st.markdown(f"<div class='linha-jogo texto-data'>{j['id']}</div>", unsafe_allow_html=True)
+
+            with c3:
+                st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
+
+            with c4:
+                casa = seletor_gols(
+                    "Gols time 1",
+                    atual,
+                    "casa",
+                    disabled=lock,
+                    key=f"{prefixo_key}_{usuario}_{j['id']}_c"
+                )
+
+            with c5:
+                st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
+
+            with c6:
+                fora = seletor_gols(
+                    "Gols time 2",
+                    atual,
+                    "fora",
+                    disabled=lock,
+                    key=f"{prefixo_key}_{usuario}_{j['id']}_f"
+                )
+
+            with c7:
+                st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
+
+            with c8:
+                if time_indefinido and not admin_liberado:
+                    st.markdown("<div class='linha-jogo status-fechado'>⏳ A definir</div>", unsafe_allow_html=True)
+                elif lock:
+                    st.markdown("<div class='linha-jogo status-fechado'>🔒 Fechado</div>", unsafe_allow_html=True)
+                elif admin_liberado:
+                    st.markdown("<div class='linha-jogo status-aberto'>🔓 Admin</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<div class='linha-jogo status-aberto'>✅ Aberto</div>", unsafe_allow_html=True)
+
+            if not lock:
+                aplicar_palpite_temp(palpites_temp, j["id"], casa, fora)
+
+
+def exibir_mata_mata(usuario, is_admin=False):
+    st.subheader("🏆 Mata-mata")
+    st.info("Os horários estão no fuso America/Maceio. Os jogos travam 1 hora antes do início, igual à fase de grupos.")
+
+    resultados = get_resultados()
+    mata_mata_manual = get_mata_mata_manual()
+    jogos_mata_mata = resolver_mata_mata(resultados, mata_mata_manual)
+    palpites_temp = dict(get_palpites_usuario(usuario))
+
+    exibir_linhas_palpites(
+        jogos=jogos_mata_mata,
+        usuario=usuario,
+        palpites_temp=palpites_temp,
+        prefixo_key="mata",
+        admin_liberado=False,
+    )
+
+    if st.button("Salvar meus palpites do mata-mata", use_container_width=True):
+        save_palpites_usuario(usuario, palpites_temp)
+        st.success("Palpites do mata-mata salvos no Firebase!")
+        st.rerun()
+
+
+def configurar_mata_mata_admin():
+    st.subheader("🧩 Configurar mata-mata")
+    st.info("Use essa tela para preencher manualmente os terceiros colocados ou corrigir algum time confirmado. Se deixar em branco, o sistema usa a classificação automática dos grupos/resultados já lançados e os confirmados do código.")
+
+    resultados = get_resultados()
+    mata_mata_manual = get_mata_mata_manual()
+    jogos_mata_mata = resolver_mata_mata(resultados, mata_mata_manual)
+    novo_manual = {}
+
+    for fase in ORDEM_FASES_MATA_MATA:
+        jogos_fase = [j for j in jogos_mata_mata if j.get("fase") == fase]
+        if not jogos_fase:
+            continue
+
+        with st.expander(fase, expanded=(fase == "32 avos")):
+            for j in jogos_fase:
+                manual_atual = mata_mata_manual.get(j["id"], {}) if isinstance(mata_mata_manual, dict) else {}
+                data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M")
+                st.markdown(f"**{j['id']} — {data_formatada} — {j.get('estadio', '')}**")
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    mandante = st.text_input(
+                        "Time 1",
+                        value=manual_atual.get("mandante", ""),
+                        placeholder=j["mandante"],
+                        key=f"manual_mm_{j['id']}_mandante",
+                    ).strip()
+                with c2:
+                    visitante = st.text_input(
+                        "Time 2",
+                        value=manual_atual.get("visitante", ""),
+                        placeholder=j["visitante"],
+                        key=f"manual_mm_{j['id']}_visitante",
+                    ).strip()
+
+                if mandante or visitante:
+                    novo_manual[j["id"]] = {}
+                    if mandante:
+                        novo_manual[j["id"]]["mandante"] = mandante
+                    if visitante:
+                        novo_manual[j["id"]]["visitante"] = visitante
+
+                st.caption(f"Atual automático: {j['mandante']} x {j['visitante']}")
+                st.divider()
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Salvar configuração do mata-mata", use_container_width=True):
+            save_mata_mata_manual(novo_manual)
+            st.success("Configuração do mata-mata salva!")
+            st.rerun()
+
+    with c2:
+        if st.button("Limpar configuração manual", use_container_width=True):
+            save_mata_mata_manual({})
+            st.success("Configuração manual limpa. O sistema voltará a usar a configuração automática.")
+            st.rerun()
+
+
+def exibir_resultados_mata_mata_admin(resultados_temp, resultados):
+    st.markdown("### 🏆 Resultados reais — Mata-mata")
+    st.info("Se um jogo de mata-mata terminar empatado no placar informado, selecione o vencedor para o sistema montar a próxima fase.")
+
+    mata_mata_manual = get_mata_mata_manual()
+    jogos_mata_mata = resolver_mata_mata(resultados_temp, mata_mata_manual)
+
+    for fase in ORDEM_FASES_MATA_MATA:
+        jogos_fase = [j for j in jogos_mata_mata if j.get("fase") == fase]
+        if not jogos_fase:
+            continue
+
+        st.markdown(f"<div class='grupo-box'>{fase}</div>", unsafe_allow_html=True)
+
+        h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([1.35, 0.9, 2.25, 0.55, 0.35, 0.55, 2.25, 1.2])
+        h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
+        h2.markdown("<div class='cabecalho-jogo'>Jogo</div>", unsafe_allow_html=True)
+        h3.markdown("<div class='cabecalho-jogo'>Time 1</div>", unsafe_allow_html=True)
+        h4.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+        h5.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
+        h6.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+        h7.markdown("<div class='cabecalho-jogo'>Time 2</div>", unsafe_allow_html=True)
+        h8.markdown("<div class='cabecalho-jogo'>Definido?</div>", unsafe_allow_html=True)
+
+        for j in jogos_fase:
+            atual = resultados.get(j["id"], {})
+            ja_definido = j["id"] in resultados
+            data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
+
+            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1.35, 0.9, 2.25, 0.55, 0.35, 0.55, 2.25, 1.2])
+
+            with c1:
+                st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"<div class='linha-jogo texto-data'>{j['id']}</div>", unsafe_allow_html=True)
+            with c3:
+                st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
+            with c4:
+                casa = st.number_input("Gols time 1 real", min_value=0, max_value=30, value=int(atual.get("casa", 0)), key=f"real_{j['id']}_c", label_visibility="collapsed")
+            with c5:
+                st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
+            with c6:
+                fora = st.number_input("Gols time 2 real", min_value=0, max_value=30, value=int(atual.get("fora", 0)), key=f"real_{j['id']}_f", label_visibility="collapsed")
+            with c7:
+                st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
+            with c8:
+                marcado = st.checkbox("OK", value=ja_definido, key=f"real_{j['id']}_check", label_visibility="collapsed")
+
+            vencedor = atual.get("vencedor")
+            if marcado and casa == fora and not eh_nome_placeholder(j["mandante"]) and not eh_nome_placeholder(j["visitante"]):
+                vencedor = st.selectbox(
+                    f"Vencedor nos pênaltis/prorrogação — {j['id']}",
+                    [j["mandante"], j["visitante"]],
+                    index=0 if atual.get("vencedor") != j["visitante"] else 1,
+                    key=f"vencedor_{j['id']}",
+                )
+
+            if marcado:
+                resultados_temp[j["id"]] = {"casa": casa, "fora": fora, "salvo_em": now_iso()}
+                if vencedor:
+                    resultados_temp[j["id"]]["vencedor"] = vencedor
+            else:
+                resultados_temp.pop(j["id"], None)
+
+    return resultados_temp
+
+
 # ===================== APP =====================
 def app():
     aplicar_estilo()
@@ -986,12 +1449,12 @@ def app():
     if is_admin:
         menu = st.sidebar.radio(
             "Menu",
-            ["Meus palpites", "Editar palpites", "Classificação", "Resultados reais", "Gerenciar usuários"]
+            ["Meus palpites", "Mata-mata", "Editar palpites", "Classificação", "Resultados reais", "Configurar mata-mata", "Gerenciar usuários"]
         )
     else:
         menu = st.sidebar.radio(
             "Menu",
-            ["Meus palpites", "Classificação", "Ver resultados"]
+            ["Meus palpites", "Mata-mata", "Classificação", "Ver resultados"]
         )
 
     st.markdown("<h1 style='text-align:center'>🏆 BOLÃO DA COPA DO MUNDO 2026 🏆</h1>", unsafe_allow_html=True)
@@ -1073,6 +1536,9 @@ def app():
             st.success("Palpites salvos no Firebase!")
             st.rerun()
 
+    elif menu == "Mata-mata":
+        exibir_mata_mata(usuario, is_admin=is_admin)
+
     elif menu == "Editar palpites":
         if is_admin:
             editar_palpites_admin()
@@ -1086,6 +1552,8 @@ def app():
         admin_name = ADMIN_USER.upper()
         usuarios_validos = sorted([u for u, d in users.items() if u != admin_name and d.get("ativo", True)])
         todos_palpites = get_all_palpites()
+        mata_mata_manual = get_mata_mata_manual()
+        jogos_pontuacao = get_jogos_para_pontuar(resultados, mata_mata_manual)
 
         linhas = []
 
@@ -1095,7 +1563,7 @@ def app():
             exatos = 0
             resultados_certos = 0
 
-            for j in JOGOS:
+            for j in jogos_pontuacao:
                 p = palp_user.get(j["id"])
                 r = resultados.get(j["id"])
 
@@ -1132,10 +1600,17 @@ def app():
                 usuarios_validos=usuarios_validos,
                 todos_palpites=todos_palpites,
                 resultados=resultados,
+                jogos_base=jogos_pontuacao,
             )
 
         else:
             st.warning("Ainda não há usuários cadastrados para aparecer na classificação.")
+
+    elif menu == "Configurar mata-mata":
+        if is_admin:
+            configurar_mata_mata_admin()
+        else:
+            st.error("Você não tem permissão para acessar esta área.")
 
     elif menu == "Gerenciar usuários":
         if is_admin:
@@ -1223,6 +1698,9 @@ def app():
                     else:
                         resultados_temp.pop(j["id"], None)
 
+            st.divider()
+            resultados_temp = exibir_resultados_mata_mata_admin(resultados_temp, resultados)
+
             if st.button("Salvar resultados reais", use_container_width=True):
                 save_resultados(resultados_temp)
                 st.success("Resultados reais salvos no Firebase!")
@@ -1232,15 +1710,20 @@ def app():
             st.subheader("Resultados reais")
 
             linhas = []
+            mata_mata_manual = get_mata_mata_manual()
+            jogos_para_exibir = get_jogos_para_pontuar(resultados, mata_mata_manual)
 
-            for j in JOGOS:
+            for j in jogos_para_exibir:
                 r = resultados.get(j["id"])
+                resultado_txt = "-" if not r else f"{r['casa']} x {r['fora']}"
+                if r and r.get("vencedor"):
+                    resultado_txt += f" — vencedor: {r['vencedor']}"
 
                 linhas.append({
                     "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
-                    "Grupo": j["grupo"],
+                    "Fase/Grupo": j.get("grupo", j.get("fase", "")),
                     "Jogo": f"{j['mandante']} x {j['visitante']}",
-                    "Resultado": "-" if not r else f"{r['casa']} x {r['fora']}"
+                    "Resultado": resultado_txt,
                 })
 
             st.dataframe(pd.DataFrame(linhas), use_container_width=True, hide_index=True)
