@@ -25,7 +25,6 @@ USUARIOS_INICIAIS = [
     "MACACO",
     "REALAL",
 ]
-
 # ===================== JOGOS =====================
 JOGOS = [
     # GRUPO A
