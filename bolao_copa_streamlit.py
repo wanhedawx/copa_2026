@@ -914,6 +914,30 @@ def get_jogos_para_pontuar(resultados=None, mata_mata_manual=None):
     return JOGOS + resolver_mata_mata(resultados or {}, mata_mata_manual or {})
 
 
+def validar_cadastro_fase_grupos():
+    problemas = []
+    grupos = sorted(set(j["grupo"] for j in JOGOS))
+
+    if len(JOGOS) != 72:
+        problemas.append(f"A fase de grupos deveria ter 72 jogos, mas o cadastro tem {len(JOGOS)}.")
+
+    if len(grupos) != 12:
+        problemas.append(f"A Copa deveria ter 12 grupos, mas o cadastro tem {len(grupos)} grupo(s): {', '.join(grupos)}.")
+
+    for grupo in grupos:
+        jogos_grupo = [j for j in JOGOS if j["grupo"] == grupo]
+        if len(jogos_grupo) != 6:
+            ids = ", ".join(j["id"] for j in jogos_grupo)
+            problemas.append(f"Grupo {grupo} deveria ter 6 jogos, mas tem {len(jogos_grupo)}: {ids}")
+
+    ids = [j["id"] for j in JOGOS]
+    ids_repetidos = sorted({jogo_id for jogo_id in ids if ids.count(jogo_id) > 1})
+    if ids_repetidos:
+        problemas.append(f"Existem IDs repetidos na fase de grupos: {', '.join(ids_repetidos)}")
+
+    return problemas
+
+
 # ===================== RESUMO DE ACERTOS =====================
 def texto_placar_palpite(palpite):
     if not palpite_valido(palpite):
@@ -1623,6 +1647,12 @@ def app():
             st.subheader("Lançar resultados reais")
             st.warning("Marque **Resultado definido** somente nos jogos que já terminaram. Jogo desmarcado não conta pontos na classificação.")
 
+            problemas_cadastro = validar_cadastro_fase_grupos()
+            if problemas_cadastro:
+                st.error("⚠️ Atenção no cadastro dos jogos:\n" + "\n".join(f"- {p}" for p in problemas_cadastro))
+            else:
+                st.caption("✅ Fase de grupos cadastrada com 72 jogos: 12 grupos x 6 jogos. Grupo E inclui E05 — Equador x Alemanha e E06 — Curaçao x Costa do Marfim.")
+
             if st.button("🧹 Limpar todos os resultados reais", use_container_width=True):
                 save_resultados({})
                 st.success("Resultados reais limpos. A classificação foi zerada até você lançar novos resultados.")
@@ -1633,29 +1663,33 @@ def app():
             for grupo in sorted(set(j["grupo"] for j in JOGOS)):
                 st.markdown(f"<div class='grupo-box'>Grupo {grupo}</div>", unsafe_allow_html=True)
 
-                h1, h2, h3, h4, h5, h6, h7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 1.2])
+                h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([1.25, 0.6, 2.2, 0.55, 0.35, 0.55, 2.2, 1.2])
                 h1.markdown("<div class='cabecalho-jogo'>Data/Hora</div>", unsafe_allow_html=True)
-                h2.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
-                h3.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
-                h4.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
-                h5.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
-                h6.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
-                h7.markdown("<div class='cabecalho-jogo'>Definido?</div>", unsafe_allow_html=True)
+                h2.markdown("<div class='cabecalho-jogo'>ID</div>", unsafe_allow_html=True)
+                h3.markdown("<div class='cabecalho-jogo'>Mandante</div>", unsafe_allow_html=True)
+                h4.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+                h5.markdown("<div class='cabecalho-jogo' style='text-align:center'>x</div>", unsafe_allow_html=True)
+                h6.markdown("<div class='cabecalho-jogo'>Gols</div>", unsafe_allow_html=True)
+                h7.markdown("<div class='cabecalho-jogo'>Visitante</div>", unsafe_allow_html=True)
+                h8.markdown("<div class='cabecalho-jogo'>Definido?</div>", unsafe_allow_html=True)
 
-                for j in [x for x in JOGOS if x["grupo"] == grupo]:
+                for j in sorted([x for x in JOGOS if x["grupo"] == grupo], key=lambda x: (x["data_hora"], x["id"])):
                     atual = resultados.get(j["id"], {})
                     ja_definido = j["id"] in resultados
                     data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y - %H:%M")
 
-                    c1, c2, c3, c4, c5, c6, c7 = st.columns([1.4, 2.3, 0.55, 0.35, 0.55, 2.3, 1.2])
+                    c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1.25, 0.6, 2.2, 0.55, 0.35, 0.55, 2.2, 1.2])
 
                     with c1:
                         st.markdown(f"<div class='linha-jogo texto-data'>{data_formatada}</div>", unsafe_allow_html=True)
 
                     with c2:
-                        st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='linha-jogo texto-data'>{j['id']}</div>", unsafe_allow_html=True)
 
                     with c3:
+                        st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['mandante'])}</div>", unsafe_allow_html=True)
+
+                    with c4:
                         casa = st.number_input(
                             "Gols mandante real",
                             min_value=0,
@@ -1665,10 +1699,10 @@ def app():
                             label_visibility="collapsed"
                         )
 
-                    with c4:
+                    with c5:
                         st.markdown("<div class='texto-x'>X</div>", unsafe_allow_html=True)
 
-                    with c5:
+                    with c6:
                         fora = st.number_input(
                             "Gols visitante real",
                             min_value=0,
@@ -1678,10 +1712,10 @@ def app():
                             label_visibility="collapsed"
                         )
 
-                    with c6:
+                    with c7:
                         st.markdown(f"<div class='linha-jogo texto-time'>{time_com_bandeira(j['visitante'])}</div>", unsafe_allow_html=True)
 
-                    with c7:
+                    with c8:
                         marcado = st.checkbox(
                             "OK",
                             value=ja_definido,
@@ -1709,6 +1743,10 @@ def app():
         else:
             st.subheader("Resultados reais")
 
+            problemas_cadastro = validar_cadastro_fase_grupos()
+            if problemas_cadastro:
+                st.error("⚠️ Atenção no cadastro dos jogos:\n" + "\n".join(f"- {p}" for p in problemas_cadastro))
+
             linhas = []
             mata_mata_manual = get_mata_mata_manual()
             jogos_para_exibir = get_jogos_para_pontuar(resultados, mata_mata_manual)
@@ -1719,14 +1757,37 @@ def app():
                 if r and r.get("vencedor"):
                     resultado_txt += f" — vencedor: {r['vencedor']}"
 
+                data_obj = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M")
                 linhas.append({
-                    "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
+                    "ID": j["id"],
+                    "Data": data_obj.strftime("%d/%m/%Y %H:%M"),
                     "Fase/Grupo": j.get("grupo", j.get("fase", "")),
                     "Jogo": f"{j['mandante']} x {j['visitante']}",
                     "Resultado": resultado_txt,
+                    "_ordem": data_obj,
                 })
 
-            st.dataframe(pd.DataFrame(linhas), use_container_width=True, hide_index=True)
+            df_resultados = pd.DataFrame(linhas)
+
+            if not df_resultados.empty:
+                df_resultados = df_resultados.sort_values(["_ordem", "ID"], ascending=[True, True]).drop(columns=["_ordem"])
+
+                busca_resultado = st.text_input(
+                    "Pesquisar por ID ou time",
+                    placeholder="Ex.: E05, Equador, Alemanha",
+                    key="busca_resultados_reais",
+                ).strip().upper()
+
+                if busca_resultado:
+                    mascara = df_resultados.apply(
+                        lambda linha: busca_resultado in " ".join(map(str, linha.values)).upper(),
+                        axis=1,
+                    )
+                    df_resultados = df_resultados[mascara]
+
+                st.dataframe(df_resultados, use_container_width=True, hide_index=True)
+            else:
+                st.warning("Nenhum jogo disponível para exibir.")
 
 
 # ===================== MAIN =====================
