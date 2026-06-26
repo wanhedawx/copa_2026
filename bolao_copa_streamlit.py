@@ -18,7 +18,7 @@ SENHA_PADRAO = "123"
 USUARIOS_INICIAIS = [
     "CHEVETTE67",
     "SAPAS",
-    "ANAO PIKENO",
+    "ANAO",
     "CHARQUINHO",
     "GAGUINHO",
     "FILHO PREFERIDO",
@@ -954,39 +954,118 @@ def texto_placar_real(real):
 
 
 def montar_resumo_acertos(usuario, palp_user, resultados, jogos_base=None):
+    """Monta o detalhe de TODOS os jogos que já têm resultado lançado.
+
+    Antes essa tela trazia só quem pontuou (pontos > 0). Agora ela mostra também
+    os erros e os jogos sem palpite, para o usuário/admin conseguir conferir tudo.
+    """
     linhas = []
     jogos_base = jogos_base or JOGOS
 
     for j in jogos_base:
-        palpite = palp_user.get(j["id"])
         real = resultados.get(j["id"])
 
+        # Só entra no resumo quando o resultado real já foi lançado.
+        if not real:
+            continue
+
+        palpite = palp_user.get(j["id"])
         pontos, tipo_acerto = calcula_pontos(palpite, real)
 
-        if pontos > 0:
-            linhas.append({
-                "Fase/Grupo": j.get("grupo", j.get("fase", "")),
-                "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
-                "Jogo": f"{j['mandante']} x {j['visitante']}",
-                "Palpite": texto_placar_palpite(palpite),
-                "Resultado real": texto_placar_real(real),
-                "Acerto": tipo_acerto,
-                "Pontos": pontos,
-            })
+        if not palpite_valido(palpite):
+            tipo_acerto = "Sem palpite"
+            pontos = 0
 
-    return pd.DataFrame(linhas)
+        linhas.append({
+            "ID": j["id"],
+            "Fase/Grupo": j.get("grupo", j.get("fase", "")),
+            "Data": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M"),
+            "Jogo": f"{j['mandante']} x {j['visitante']}",
+            "Palpite": texto_placar_palpite(palpite),
+            "Resultado real": texto_placar_real(real),
+            "Situação": tipo_acerto,
+            "Pontos": pontos,
+            "_ordem": datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M"),
+        })
+
+    df = pd.DataFrame(linhas)
+
+    if not df.empty:
+        df = df.sort_values(["_ordem", "ID"], ascending=[False, True]).drop(columns=["_ordem"])
+
+    return df
+
+
+def resumo_numeros_usuario(df_resumo):
+    if df_resumo.empty:
+        return {
+            "jogos_lancados": 0,
+            "placar_exato": 0,
+            "resultado_certo": 0,
+            "erros": 0,
+            "sem_palpite": 0,
+            "pontos": 0,
+        }
+
+    return {
+        "jogos_lancados": int(len(df_resumo)),
+        "placar_exato": int((df_resumo["Situação"] == "Placar exato").sum()),
+        "resultado_certo": int((df_resumo["Situação"] == "Resultado certo").sum()),
+        "erros": int((df_resumo["Situação"] == "Errou").sum()),
+        "sem_palpite": int((df_resumo["Situação"] == "Sem palpite").sum()),
+        "pontos": int(df_resumo["Pontos"].sum()),
+    }
+
+
+def texto_resumo_usuario(usuario, df_resumo):
+    n = resumo_numeros_usuario(df_resumo)
+    acertos = n["placar_exato"] + n["resultado_certo"]
+
+    return (
+        f"{usuario} — {acertos} acerto(s) — {n['erros']} erro(s) — "
+        f"{n['sem_palpite']} sem palpite — {n['pontos']} ponto(s)"
+    )
+
+
+def aplicar_filtro_situacao_resumo(df_resumo, key):
+    if df_resumo.empty:
+        return df_resumo
+
+    filtro = st.multiselect(
+        "Filtrar situação",
+        ["Placar exato", "Resultado certo", "Errou", "Sem palpite"],
+        default=["Placar exato", "Resultado certo", "Errou", "Sem palpite"],
+        key=key,
+    )
+
+    if filtro:
+        return df_resumo[df_resumo["Situação"].isin(filtro)]
+
+    return df_resumo.iloc[0:0]
+
+
+def exibir_metricas_resumo(df_resumo):
+    n = resumo_numeros_usuario(df_resumo)
+    acertos = n["placar_exato"] + n["resultado_certo"]
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Jogos lançados", n["jogos_lancados"])
+    c2.metric("Acertos", acertos)
+    c3.metric("Erros", n["erros"])
+    c4.metric("Sem palpite", n["sem_palpite"])
+    c5.metric("Pontos", n["pontos"])
 
 
 def exibir_resumo_acertos(is_admin, usuario_logado, usuarios_validos, todos_palpites, resultados, jogos_base=None):
     st.divider()
-    st.subheader("📋 Resumo dos acertos")
+    st.subheader("📋 Resumo dos palpites")
 
     if not resultados:
-        st.info("Nenhum resultado real foi lançado ainda. Quando o admin lançar os resultados, os acertos aparecem aqui.")
+        st.info("Nenhum resultado real foi lançado ainda. Quando o admin lançar os resultados, os acertos e erros aparecem aqui.")
         return
 
     if is_admin:
-        st.info("Área do admin: você consegue ver o resumo de acertos de todos os usuários.")
+        st.info("Área do admin: você consegue ver o resumo completo de todos os usuários, incluindo acertos, erros e jogos sem palpite.")
 
         modo_resumo = st.radio(
             "Como deseja visualizar?",
@@ -1008,38 +1087,37 @@ def exibir_resumo_acertos(is_admin, usuario_logado, usuarios_validos, todos_palp
             st.markdown(f"### 👤 {usuario_escolhido}")
 
             if df_resumo.empty:
-                st.warning("Esse usuário ainda não acertou nenhum jogo com resultado lançado.")
+                st.warning("Ainda não há jogos com resultado lançado para esse usuário.")
             else:
-                total_pontos = int(df_resumo["Pontos"].sum())
-                st.success(f"{usuario_escolhido} acertou {len(df_resumo)} jogo(s), somando {total_pontos} ponto(s).")
-                st.dataframe(df_resumo, use_container_width=True, hide_index=True)
+                exibir_metricas_resumo(df_resumo)
+                df_filtrado = aplicar_filtro_situacao_resumo(df_resumo, key="filtro_situacao_resumo_admin_usuario")
+                st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
         else:
             for user in usuarios_validos:
                 palp_user = todos_palpites.get(user, {})
                 df_resumo = montar_resumo_acertos(user, palp_user, resultados, jogos_base)
 
-                qtd_acertos = len(df_resumo)
-                total_pontos = int(df_resumo["Pontos"].sum()) if not df_resumo.empty else 0
-
-                with st.expander(f"{user} — {qtd_acertos} acerto(s) — {total_pontos} ponto(s)", expanded=False):
+                with st.expander(texto_resumo_usuario(user, df_resumo), expanded=False):
                     if df_resumo.empty:
-                        st.warning("Nenhum acerto ainda.")
+                        st.warning("Ainda não há jogos com resultado lançado.")
                     else:
-                        st.dataframe(df_resumo, use_container_width=True, hide_index=True)
+                        exibir_metricas_resumo(df_resumo)
+                        df_filtrado = aplicar_filtro_situacao_resumo(df_resumo, key=f"filtro_situacao_resumo_{user}")
+                        st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
     else:
         palp_user = todos_palpites.get(usuario_logado, {})
         df_resumo = montar_resumo_acertos(usuario_logado, palp_user, resultados, jogos_base)
 
-        st.info("Aqui aparecem somente os jogos que você acertou.")
+        st.info("Aqui aparecem todos os seus jogos com resultado lançado: acertos, erros e jogos sem palpite.")
 
         if df_resumo.empty:
-            st.warning("Você ainda não acertou nenhum jogo com resultado lançado.")
+            st.warning("Ainda não há jogos com resultado lançado.")
         else:
-            total_pontos = int(df_resumo["Pontos"].sum())
-            st.success(f"Você acertou {len(df_resumo)} jogo(s), somando {total_pontos} ponto(s).")
-            st.dataframe(df_resumo, use_container_width=True, hide_index=True)
+            exibir_metricas_resumo(df_resumo)
+            df_filtrado = aplicar_filtro_situacao_resumo(df_resumo, key="filtro_situacao_resumo_usuario")
+            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
 
 # ===================== GERENCIAR USUÁRIOS =====================
