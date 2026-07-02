@@ -130,97 +130,97 @@ JOGOS = [
 # quando a combinação oficial dos melhores terceiros sair. O admin pode preencher
 # manualmente na tela "Configurar mata-mata".
 MATA_MATA = [{'id': 'M73',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-06-28 16:00',
   'estadio': 'Los Angeles Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'A', 'pos': 2, 'label': '2º Grupo A', 'confirmado': 'África do Sul'},
   'origem_visitante': {'tipo': 'grupo', 'grupo': 'B', 'pos': 2, 'label': '2º Grupo B', 'confirmado': 'Canadá'}},
  {'id': 'M74',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-06-29 17:30',
   'estadio': 'Boston Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'E', 'pos': 1, 'label': '1º Grupo E', 'confirmado': 'Alemanha'},
   'origem_visitante': {'tipo': 'terceiro', 'grupos': 'A/B/C/D/F', 'label': '3º Grupo A/B/C/D/F', 'confirmado': 'Paraguai'}},
  {'id': 'M75',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-06-29 22:00',
   'estadio': 'Guadalajara Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'F', 'pos': 1, 'label': '1º Grupo F', 'confirmado': 'Holanda'},
   'origem_visitante': {'tipo': 'grupo', 'grupo': 'C', 'pos': 2, 'label': '2º Grupo C', 'confirmado': 'Marrocos'}},
  {'id': 'M76',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-06-29 14:00',
   'estadio': 'Houston Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'C', 'pos': 1, 'label': '1º Grupo C', 'confirmado': 'Brasil'},
   'origem_visitante': {'tipo': 'grupo', 'grupo': 'F', 'pos': 2, 'label': '2º Grupo F', 'confirmado': 'Japão'}},
  {'id': 'M77',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-06-30 18:00',
   'estadio': 'New York New Jersey Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'I', 'pos': 1, 'label': '1º Grupo I', 'confirmado': 'França'},
   'origem_visitante': {'tipo': 'terceiro', 'grupos': 'C/D/F/G/H', 'label': '3º Grupo C/D/F/G/H', 'confirmado': 'Suécia'}},
  {'id': 'M78',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-06-30 14:00',
   'estadio': 'Dallas Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'E', 'pos': 2, 'label': '2º Grupo E', 'confirmado': 'Costa do Marfim'},
   'origem_visitante': {'tipo': 'grupo', 'grupo': 'I', 'pos': 2, 'label': '2º Grupo I', 'confirmado': 'Noruega'}},
  {'id': 'M79',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-06-30 22:00',
   'estadio': 'Mexico City Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'A', 'pos': 1, 'label': '1º Grupo A', 'confirmado': 'México'},
   'origem_visitante': {'tipo': 'terceiro', 'grupos': 'C/E/F/H/I', 'label': '3º Grupo C/E/F/H/I', 'confirmado': 'Equador'}},
  {'id': 'M80',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-01 13:00',
   'estadio': 'Atlanta Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'L', 'pos': 1, 'label': '1º Grupo L', 'confirmado': 'Inglaterra'},
   'origem_visitante': {'tipo': 'terceiro', 'grupos': 'E/H/I/J/K', 'label': '3º Grupo E/H/I/J/K', 'confirmado': 'RD do Congo'}},
  {'id': 'M81',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-01 21:00',
   'estadio': 'San Francisco Bay Area Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'D', 'pos': 1, 'label': '1º Grupo D', 'confirmado': 'Estados Unidos'},
   'origem_visitante': {'tipo': 'terceiro', 'grupos': 'B/E/F/I/J', 'label': '3º Grupo B/E/F/I/J', 'confirmado': 'Bósnia e Herzegovina'}},
  {'id': 'M82',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-01 17:00',
   'estadio': 'Seattle Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'G', 'pos': 1, 'label': '1º Grupo G', 'confirmado': 'Bélgica'},
   'origem_visitante': {'tipo': 'terceiro', 'grupos': 'A/E/H/I/J', 'label': '3º Grupo A/E/H/I/J', 'confirmado': 'Senegal'}},
  {'id': 'M83',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-02 20:00',
   'estadio': 'Toronto Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'K', 'pos': 2, 'label': '2º Grupo K', 'confirmado': 'Portugal'},
   'origem_visitante': {'tipo': 'grupo', 'grupo': 'L', 'pos': 2, 'label': '2º Grupo L', 'confirmado': 'Croácia'}},
  {'id': 'M84',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-02 16:00',
   'estadio': 'Los Angeles Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'H', 'pos': 1, 'label': '1º Grupo H', 'confirmado': 'Espanha'},
   'origem_visitante': {'tipo': 'grupo', 'grupo': 'J', 'pos': 2, 'label': '2º Grupo J', 'confirmado': 'Áustria'}},
  {'id': 'M85',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-03 00:00',
   'estadio': 'BC Place Vancouver',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'B', 'pos': 1, 'label': '1º Grupo B', 'confirmado': 'Suíça'},
   'origem_visitante': {'tipo': 'terceiro', 'grupos': 'E/F/G/I/J', 'label': '3º Grupo E/F/G/I/J', 'confirmado': 'Argélia'}},
  {'id': 'M86',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-03 19:00',
   'estadio': 'Miami Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'J', 'pos': 1, 'label': '1º Grupo J', 'confirmado': 'Argentina'},
   'origem_visitante': {'tipo': 'grupo', 'grupo': 'H', 'pos': 2, 'label': '2º Grupo H', 'confirmado': 'Cabo Verde'}},
  {'id': 'M87',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-03 22:30',
   'estadio': 'Kansas City Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'K', 'pos': 1, 'label': '1º Grupo K', 'confirmado': 'Colômbia'},
   'origem_visitante': {'tipo': 'terceiro', 'grupos': 'D/E/I/J/L', 'label': '3º Grupo D/E/I/J/L', 'confirmado': 'Gana'}},
  {'id': 'M88',
-  'fase': '32 avos',
+  'fase': '16 avos',
   'data_hora': '2026-07-03 15:00',
   'estadio': 'Dallas Stadium',
   'origem_mandante': {'tipo': 'grupo', 'grupo': 'D', 'pos': 2, 'label': '2º Grupo D', 'confirmado': 'Austrália'},
@@ -322,11 +322,11 @@ MATA_MATA = [{'id': 'M73',
   'origem_mandante': {'tipo': 'vencedor', 'jogo': 'M101', 'label': 'Vencedor M101'},
   'origem_visitante': {'tipo': 'vencedor', 'jogo': 'M102', 'label': 'Vencedor M102'}}]
 
-ORDEM_FASES_MATA_MATA = ["32 avos", "Oitavas", "Quartas", "Semifinal", "Terceiro lugar", "Final"]
+ORDEM_FASES_MATA_MATA = ["16 avos", "Oitavas", "Quartas", "Semifinal", "Terceiro lugar", "Final"]
 
 # ===================== RESULTADOS OFICIAIS ATUALIZADOS =====================
 # Resultados usados como base automática. O que estiver salvo no Firebase sobrescreve estes valores.
-# Inclui a fase de grupos completa e o primeiro jogo do mata-mata já finalizado.
+# Inclui a fase de grupos completa e os jogos do mata-mata já finalizados.
 RESULTADOS_OFICIAIS_ATUALIZADOS = {'A01': {'casa': 2, 'fora': 0},
  'A02': {'casa': 2, 'fora': 1},
  'A03': {'casa': 1, 'fora': 1},
@@ -399,7 +399,16 @@ RESULTADOS_OFICIAIS_ATUALIZADOS = {'A01': {'casa': 2, 'fora': 0},
  'L04': {'casa': 0, 'fora': 1},
  'L05': {'casa': 0, 'fora': 2},
  'L06': {'casa': 2, 'fora': 1},
- 'M73': {'casa': 0, 'fora': 1, 'vencedor': 'Canadá'}}
+ 'M73': {'casa': 0, 'fora': 1, 'vencedor': 'Canadá'},
+ 'M74': {'casa': 1, 'fora': 1, 'vencedor': 'Paraguai'},
+ 'M75': {'casa': 1, 'fora': 1, 'vencedor': 'Marrocos'},
+ 'M76': {'casa': 2, 'fora': 1, 'vencedor': 'Brasil'},
+ 'M77': {'casa': 3, 'fora': 0, 'vencedor': 'França'},
+ 'M78': {'casa': 1, 'fora': 2, 'vencedor': 'Noruega'},
+ 'M79': {'casa': 2, 'fora': 0, 'vencedor': 'México'},
+ 'M80': {'casa': 2, 'fora': 1, 'vencedor': 'Inglaterra'},
+ 'M81': {'casa': 2, 'fora': 0, 'vencedor': 'Estados Unidos'},
+ 'M82': {'casa': 3, 'fora': 2, 'vencedor': 'Bélgica'}}
 
 
 def mesclar_resultados_oficiais(resultados_firebase):
@@ -1649,7 +1658,7 @@ def configurar_mata_mata_admin():
         if not jogos_fase:
             continue
 
-        with st.expander(fase, expanded=(fase == "32 avos")):
+        with st.expander(fase, expanded=(fase == "16 avos")):
             for j in jogos_fase:
                 manual_atual = mata_mata_manual.get(j["id"], {}) if isinstance(mata_mata_manual, dict) else {}
                 data_formatada = datetime.strptime(j["data_hora"], "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M")
@@ -1978,7 +1987,7 @@ def app():
                     resultados_salvar = dict(resultados)
                     resultados_salvar.update(RESULTADOS_OFICIAIS_ATUALIZADOS)
                     save_resultados(resultados_salvar)
-                    st.success("Resultados oficiais atualizados salvos no Firebase!")
+                    st.success("Resultados oficiais atualizados salvos no Firebase! O mata-mata será recalculado com os novos classificados.")
                     st.rerun()
 
             with col_limpar:
